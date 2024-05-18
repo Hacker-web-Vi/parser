@@ -153,6 +153,7 @@ class AioHttpCalls:
             data = await response
             validators = []
             for validator in data['validators']:
+                # if validator.get('operator_address') ==
                 info = {'moniker': validator.get('description',{}).get('moniker'),
                         'valoper': validator.get('operator_address'),
                         'commission': validator.get('commission', {}).get('commission_rates', {}).get('rate', '0.0'),
@@ -183,7 +184,8 @@ class AioHttpCalls:
             valcons = []
             for validator in data['validators']:
                 valcons.append(validator['address'])
-            return valcons
+            return {'height': height, 'vaset': valcons}
+        
         return await self.handle_request(url, process_response)
     
     async def get_block(self, height):
@@ -200,3 +202,18 @@ class AioHttpCalls:
             return {"height": height, "signatures": signatures, "proposer": proposer}
 
         return await self.handle_request(url, process_response)
+    
+
+    async def get_valset_at_block_hex(self, height, page):
+        url = f"{self.rpc}/validators?height={height}&page={page}&per_page=100"
+        
+        async def process_response(response):
+            data = await response
+            valset_hex = []
+            for validator in data['result']['validators']:
+                valset_hex.append(validator['address'])
+
+            return valset_hex
+        
+        return await self.handle_request(url, process_response)
+    

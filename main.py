@@ -61,6 +61,21 @@ async def fetch_wallet_transactions(validators, session):
         validator['transactions'] = result
     return validators
 
+async def get_all_valset(session, height):
+    valset_tasks = []
+    for page in range(1, 5 + 1):
+        valset_tasks.append(session.get_valset_at_block_hex(height=height, page=page))
+    valset = await asyncio.gather(*valset_tasks)
+    
+    merged_valsets = []
+
+    for sublist in valset:
+        if sublist is not None:
+            for itm in  sublist:
+                merged_valsets.append(itm)
+
+    return merged_valsets
+
 async def parse_signatures_batches(validators, session, batch_size=1000):
     latest_indexed_height = 1
     if os.path.exists('metrics.json'):
@@ -74,15 +89,22 @@ async def parse_signatures_batches(validators, session, batch_size=1000):
 
         for start_height in range(latest_indexed_height, rpc_latest_height, batch_size):
             end_height = min(start_height + batch_size, rpc_latest_height)
-            
-            tasks = [session.get_block(height=current_height) for current_height in range(start_height, end_height)]
-            blocks = await asyncio.gather(*tasks)
-            tasks = [session.get_valset_at_block(height=current_height) for current_height in range(start_height, end_height)]
-            valsets = await asyncio.gather(*tasks)
 
-            for block, valset_at_height in zip(blocks, valsets):
+            blocks_tasks = []
+            valset_tasks = []
+            
+            for current_height in range(start_height, end_height):
+                blocks_tasks.append(session.get_block(height=current_height))
+                valset_tasks.append(get_all_valset(session=session, height=current_height))
+
+            blocks = await asyncio.gather(*blocks_tasks)
+            valsets = await asyncio.gather(*valset_tasks)
+            
+
+            for block, valset in zip(blocks, valsets):
+
                 for validator in validators:
-                    if validator['valcons'] in valset_at_height:
+                    if validator['hex'] in valset:
                         if validator['hex'] == block['proposer']:
                             validator['total_proposed_blocks'] += 1
                         if validator['hex'] in block['signatures']:
@@ -122,7 +144,6 @@ async def main():
             logger.info('Fetching tombstones info')
             validators = await check_valdiator_tomb(validators=validators, session=session)
             print('------------------------------------------------------------------------')
-
             logger.info('Started indexing blocks')
             await parse_signatures_batches(validators=validators, session=session)
         else:
@@ -132,6 +153,7 @@ async def main():
                 print('------------------------------------------------------------------------')
                 logger.info(f"Continue indexing blocks from {metrics_data.get('latest_height')}")
                 await parse_signatures_batches(validators=validators, session=session)
+
 if __name__ == "__main__":
     try:
         asyncio.run(main())
