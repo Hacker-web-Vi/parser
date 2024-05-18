@@ -76,7 +76,7 @@ async def get_all_valset(session, height):
 
     return merged_valsets
 
-async def parse_signatures_batches(validators, session, batch_size=1000):
+async def parse_signatures_batches(validators, session, batch_size=300):
     latest_indexed_height = 1
     if os.path.exists('metrics.json'):
         with open('metrics.json', 'r') as file:
@@ -100,7 +100,6 @@ async def parse_signatures_batches(validators, session, batch_size=1000):
             blocks = await asyncio.gather(*blocks_tasks)
             valsets = await asyncio.gather(*valset_tasks)
             
-
             for block, valset in zip(blocks, valsets):
 
                 for validator in validators:
@@ -120,7 +119,6 @@ async def parse_signatures_batches(validators, session, batch_size=1000):
                 json.dump(metrics_data, file)
             
             pbar.update(end_height - start_height)
-    return validators
 
 async def main():
     async with AioHttpCalls(config=config, logger=logger, timeout=600) as session:
