@@ -1,7 +1,8 @@
-rpc: "http://127.0.0.1:26294"
-api: "http://127.0.0.1:1389"
+rpc: "http://168.119.10.134:26294"
+api: "http://168.119.10.134:1389"
 bech_32_prefix: "evmos"
 stake_denom: "aevmos"
 chain_id: "zgtendermint_9000-1"
 batch_size: 100
 start_height: 1
+log_lvl: "INFO"

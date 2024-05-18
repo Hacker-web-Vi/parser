@@ -11,7 +11,7 @@ from utils.decoder import Decoder
 with open('config.yaml', 'r') as config_file:
     config = safe_load(config_file)
 
-logger = setup_logger(log_level="INFO")
+logger = setup_logger(log_level=config['log_lvl'])
 
 decoder = Decoder(bech32_prefix=config['bech_32_prefix'], logger=logger)
 
@@ -84,6 +84,7 @@ async def parse_signatures_batches(validators, session, start_height, batch_size
         logger.error("Failed to fetch RPC latest height. RPC is not reachable. Exiting.")
         exit(1)
 
+
     with tqdm(total=rpc_latest_height, desc="Parsing Blocks", unit="block", initial=start_height) as pbar:
 
         for start_height in range(start_height, rpc_latest_height, batch_size):
@@ -120,7 +121,8 @@ async def parse_signatures_batches(validators, session, start_height, batch_size
             with open('metrics.json', 'w') as file:
                 json.dump(metrics_data, file)
             
-            pbar.update(end_height - start_height)
+            if config['log_lvl'] != 'DEBUG':
+                pbar.update(end_height - start_height)
 
 async def main():
     async with AioHttpCalls(config=config, logger=logger, timeout=800) as session:
