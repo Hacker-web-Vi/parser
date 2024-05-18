@@ -10,3 +10,4 @@ pip3 install -r requirements.txt
 ```py
 python3 main.py
 ```
+#### Edit config.yaml if needed
