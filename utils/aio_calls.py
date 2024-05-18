@@ -1,4 +1,3 @@
-import asyncio
 import aiohttp
 import traceback
 import time
@@ -42,12 +41,7 @@ class AioHttpCalls:
                 elif response.status == 500 and '/block?height=1' in url:
                     data = await callback(response.json())
                     return data
-                
-                elif response.status == 501 and '/cosmos/bank/v1beta1/supply/' in url and '/by_denom?' not in url:
-                    data = await self.get_supply_by_denom()
-                    self.logger.debug(f"Request to {url} failed with status code {response.status}. Trying get_supply_by_denom")
-                    return data
-                
+        
                 else:
                     self.logger.debug(f"Request to {url} failed with status code {response.status}")
                     return None
@@ -73,16 +67,7 @@ class AioHttpCalls:
             return int(data.get('result', {}).get('response', {}).get('last_block_height'))
         
         return await self.handle_request(url, process_response)
-    
-    async def get_active_wallets(self):
-        url = f"{self.api}/cosmos/auth/v1beta1/accounts?pagination.limit=10&pagination.count_total=true"
-        
-        async def process_response(response):
-            data = await response
-            return data.get('pagination', {}).get('total')
-        
-        return await self.handle_request(url, process_response)
-    
+
     async def get_total_delegators(self, valoper: str) -> str:
         url = f"{self.api}/cosmos/staking/v1beta1/validators/{valoper}/delegations?pagination.count_total=true"
         
@@ -153,7 +138,6 @@ class AioHttpCalls:
             data = await response
             validators = []
             for validator in data['validators']:
-                # if validator.get('operator_address') ==
                 info = {'moniker': validator.get('description',{}).get('moniker'),
                         'valoper': validator.get('operator_address'),
                         'commission': validator.get('commission', {}).get('commission_rates', {}).get('rate', '0.0'),

@@ -1,11 +1,12 @@
 import asyncio
+import json
+import os
+from sys import exit
+from tqdm import tqdm
 from yaml import safe_load
 from utils.logger import setup_logger
 from utils.aio_calls import AioHttpCalls
 from utils.decoder import Decoder
-import json
-import os
-from tqdm import tqdm
 
 with open('config.yaml', 'r') as config_file:
     config = safe_load(config_file)
@@ -76,18 +77,16 @@ async def get_all_valset(session, height):
 
     return merged_valsets
 
-async def parse_signatures_batches(validators, session, batch_size=300):
-    latest_indexed_height = 1
-    if os.path.exists('metrics.json'):
-        with open('metrics.json', 'r') as file:
-            metrics_data = json.load(file)
-            latest_indexed_height = metrics_data.get('latest_height', 1)
+async def parse_signatures_batches(validators, session, start_height, batch_size=300):
 
     rpc_latest_height = await session.get_latest_block_height_rpc()
+    if not rpc_latest_height:
+        logger.error("Failed to fetch RPC latest height. RPC is not reachable. Exiting.")
+        exit(1)
 
-    with tqdm(total=rpc_latest_height, desc="Parsing Blocks", unit="block", initial=latest_indexed_height) as pbar:
+    with tqdm(total=rpc_latest_height, desc="Parsing Blocks", unit="block", initial=start_height) as pbar:
 
-        for start_height in range(latest_indexed_height, rpc_latest_height, batch_size):
+        for start_height in range(start_height, rpc_latest_height, batch_size):
             end_height = min(start_height + batch_size, rpc_latest_height)
 
             blocks_tasks = []
@@ -101,6 +100,9 @@ async def parse_signatures_batches(validators, session, batch_size=300):
             valsets = await asyncio.gather(*valset_tasks)
             
             for block, valset in zip(blocks, valsets):
+                if block is None or valset is None:
+                    logger.error("Failed to fetch block/valset info. Try to reduce batch size in config and restart. Exiting")
+                    exit(1)
 
                 for validator in validators:
                     if validator['hex'] in valset:
@@ -121,11 +123,14 @@ async def parse_signatures_batches(validators, session, batch_size=300):
             pbar.update(end_height - start_height)
 
 async def main():
-    async with AioHttpCalls(config=config, logger=logger, timeout=600) as session:
+    async with AioHttpCalls(config=config, logger=logger, timeout=800) as session:
         if not os.path.exists('metrics.json'):
             print('------------------------------------------------------------------------')
             logger.info('Fetching latest validators set')
             validators = await get_validators(session=session)
+            if not validators:
+                logger.error("Failed to fetch validators. API is not reachable. Exiting")
+                exit(1)
             print('------------------------------------------------------------------------')
             logger.info('Fetching slashing info')
             validators = await get_slashing_info(validators=validators, session=session)
@@ -143,14 +148,16 @@ async def main():
             validators = await check_valdiator_tomb(validators=validators, session=session)
             print('------------------------------------------------------------------------')
             logger.info('Started indexing blocks')
-            await parse_signatures_batches(validators=validators, session=session)
+            await parse_signatures_batches(validators=validators, session=session, start_height=config['start_height'], batch_size=config['batch_size'])
         else:
+
             with open('metrics.json', 'r') as file:
                 metrics_data = json.load(file)
                 validators = metrics_data.get('validators')
+                latest_indexed_height = metrics_data.get('latest_height', 1)
                 print('------------------------------------------------------------------------')
                 logger.info(f"Continue indexing blocks from {metrics_data.get('latest_height')}")
-                await parse_signatures_batches(validators=validators, session=session)
+                await parse_signatures_batches(validators=validators, session=session, start_height=latest_indexed_height, batch_size=config['batch_size'])
 
 if __name__ == "__main__":
     try:
