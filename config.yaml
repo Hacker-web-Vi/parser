@@ -3,5 +3,5 @@ api: "http://127.0.0.1:1389"
 bech_32_prefix: "evmos"
 stake_denom: "aevmos"
 chain_id: "zgtendermint_9000-1"
-batch_size: 10
-start_height: 2
+batch_size: 100
+start_height: 1
