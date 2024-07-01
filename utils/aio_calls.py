@@ -69,7 +69,7 @@ class AioHttpCalls:
         return await self.handle_request(url, process_response)
 
     async def get_total_delegators(self, valoper: str) -> str:
-        url = f"{self.api}/cosmos/staking/v1beta1/validators/{valoper}/delegations?pagination.count_total=true"
+        url = f"{self.api}/initia/mstaking/v1/validators/{valoper}/delegations?pagination.count_total=true"
         
         async def process_response(response):
             data = await response
@@ -126,12 +126,12 @@ class AioHttpCalls:
 
         return await self.handle_request(url, process_response)
 
-    async def get_validators(self, status: str = None) -> dict:
+    async def get_validators(self, status: str = None) -> list:
         status_urls = {
-            "BOND_STATUS_BONDED": f"{self.api}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100000",
-            "BOND_STATUS_UNBONDED": f"{self.api}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_UNBONDED&pagination.limit=100000",
-            "BOND_STATUS_UNBONDING": f"{self.api}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_UNBONDING&pagination.limit=100000",
-            None: f"{self.api}/cosmos/staking/v1beta1/validators?&pagination.limit=100000"
+            "BOND_STATUS_BONDED": f"{self.api}/initia/mstaking/v1/validators?status=BOND_STATUS_BONDED&pagination.limit=100000",
+            "BOND_STATUS_UNBONDED": f"{self.api}/initia/mstaking/v1/validators?status=BOND_STATUS_UNBONDED&pagination.limit=100000",
+            "BOND_STATUS_UNBONDING": f"{self.api}/initia/mstaking/v1/validators?status=BOND_STATUS_UNBONDING&pagination.limit=100000",
+            None: f"{self.api}/initia/mstaking/v1/validators?&pagination.limit=100000"
         }
         url = status_urls.get(status, status_urls[None])
         async def process_response(response):
@@ -172,7 +172,7 @@ class AioHttpCalls:
         
         return await self.handle_request(url, process_response)
     
-    async def get_block(self, height):
+    async def get_block_signatures(self, height):
         url = f"{self.rpc}/commit?height={height}"
 
         async def process_response(response):
@@ -198,6 +198,15 @@ class AioHttpCalls:
                 valset_hex.append(validator['address'])
 
             return valset_hex
+        
+        return await self.handle_request(url, process_response)
+
+    async def get_extension_tx(self, height):
+        url = f"{self.rpc}/block?height={height}"
+        
+        async def process_response(response):
+            data = await response
+            return data['result']['block']['data']['txs'][0]
         
         return await self.handle_request(url, process_response)
     
