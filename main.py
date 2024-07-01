@@ -62,9 +62,18 @@ async def fetch_wallet_transactions(validators, session):
         validator['transactions'] = result
     return validators
 
-async def get_all_valset(session, height):
+async def get_all_valset(session, height, max_vals):
     valset_tasks = []
-    for page in range(1, 5 + 1):
+    if max_vals <= 100:
+        page_max = 1
+    elif 100 < max_vals <= 200:
+        page_max = 2
+    elif 200 < max_vals <= 300:
+        page_max = 3
+    else:
+        page_max = 4
+
+    for page in range(1, page_max + 1):
         valset_tasks.append(session.get_valset_at_block_hex(height=height, page=page))
     valset = await asyncio.gather(*valset_tasks)
     
@@ -89,13 +98,14 @@ async def parse_signatures_batches(validators, session, start_height, batch_size
 
         for start_height in range(start_height, rpc_latest_height, batch_size):
             end_height = min(start_height + batch_size, rpc_latest_height)
+            max_vals = config.get('max_number_of_valdiators_ever_in_the_active_set') or 125
 
             blocks_tasks = []
             valset_tasks = []
             
             for current_height in range(start_height, end_height):
                 blocks_tasks.append(session.get_block(height=current_height))
-                valset_tasks.append(get_all_valset(session=session, height=current_height))
+                valset_tasks.append(get_all_valset(session=session, height=current_height, max_vals=max_vals))
 
             blocks = await asyncio.gather(*blocks_tasks)
             valsets = await asyncio.gather(*valset_tasks)
@@ -141,7 +151,7 @@ async def main():
             validators = await fetch_wallet_transactions(validators=validators, session=session)
             print('------------------------------------------------------------------------')
             logger.info('Fetching delegators info')
-            validators = await get_delegators_number(validators=validators, session=session)
+            # validators = await get_delegators_number(validators=validators, session=session)
             print('------------------------------------------------------------------------')
             logger.info('Fetching validator creation info')
             validators = await get_validator_creation_info(validators=validators, session=session)
