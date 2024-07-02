@@ -8,7 +8,9 @@ from utils.logger import setup_logger
 from utils.aio_calls import AioHttpCalls
 from utils.decoder import Decoder
 from utils.extension_parser import ExtensionParser
-import concurrent
+from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import Pool
+
 with open('config.yaml', 'r') as config_file:
     config = safe_load(config_file)
 
@@ -107,8 +109,7 @@ def process_extension(tx: str):
         data = {}
         for validator in extension_validators:
             valcons = decoder.convert_consenses_pubkey_to_valcons(consensus_pub_key=None, address_data=validator['validator_address'])
-            hex = decoder.conver_valcons_to_hex(valcons=valcons)
-            data[hex] = 1 if validator['pairs'] else 0
+            data[valcons] = 1 if validator['pairs'] else 0
 
         return data
     except Exception as e:
@@ -133,8 +134,11 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
             
             for current_height in range(start_height, end_height):
                 signature_tasks.append(session.get_block_signatures(height=current_height))
-                valset_tasks.append(get_all_valset(session=session, height=current_height, max_vals=max_vals))
-                tx_tasks.append(session.get_extension_tx(height=current_height - 1)) 
+                if max_vals > 100:
+                    valset_tasks.append(get_all_valset(session=session, height=current_height, max_vals=max_vals))
+                else:
+                    valset_tasks.append(session.get_valset_at_block_hex(height=current_height, page=1))
+                tx_tasks.append(session.get_extension_tx(height=current_height)) 
             
             blocks, valsets, txs = await asyncio.gather(
                 asyncio.gather(*signature_tasks),
@@ -142,8 +146,28 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
                 asyncio.gather(*tx_tasks)
             )
 
-            parsed_extensions = [process_extension(tx) for tx in txs]
+            parsed_extensions = []
+            # for tx in txs: 
+            #     parsed_extensions.append(process_extension(tx))
 
+            # loop = asyncio.get_event_loop()
+            # with ThreadPoolExecutor() as executor:
+            #     tasks = [loop.run_in_executor(executor, process_extension, tx) for tx in txs]
+            #     parsed_extensions = await asyncio.gather(*tasks)
+
+            # with Pool(os.cpu_count() -2) as pool:
+                # parsed_extensions = pool.map(process_extension, txs)
+
+            try:
+                with Pool(os.cpu_count() - 1) as pool:
+                    print(f"Number of processes started: {pool._processes}")
+                    parsed_extensions = pool.map(process_extension, txs)
+            except KeyboardInterrupt:
+                pool.terminate()
+                pool.join()
+                print("Process terminated by user")
+                return
+    
             for block, valset, extension in zip(blocks, valsets, parsed_extensions):
 
                 if block is None or valset is None or extension is None:
@@ -160,7 +184,7 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
                             validator['total_missed_blocks'] += 1
 
 
-                        if extension.get(validator['hex'], []):
+                        if extension.get(validator['valcons']):
                             validator['total_oracle_votes'] += 1
                         else:
                             validator['total_missed_oracle_votes'] += 1
@@ -184,24 +208,46 @@ async def main():
             if not validators:
                 logger.error("Failed to fetch validators. API is not reachable. Exiting")
                 exit(1)
-            print('------------------------------------------------------------------------')
-            logger.info('Fetching slashing info')
-            validators = await get_slashing_info(validators=validators, session=session)
-            print('------------------------------------------------------------------------')
-            logger.info('Fetching transactions info')
-            # validators = await fetch_wallet_transactions(validators=validators, session=session)
-            print('------------------------------------------------------------------------')
-            logger.info('Fetching delegators info')
-            # validators = await get_delegators_number(validators=validators, session=session)
-            print('------------------------------------------------------------------------')
-            logger.info('Fetching validator creation info')
-            # validators = await get_validator_creation_info(validators=validators, session=session)
+            if config['metrics']['jails_info']:
+                print('------------------------------------------------------------------------')
+                logger.info('Fetching slashing info')
+                validators = await get_slashing_info(validators=validators, session=session)
+            if config['metrics']['wallet_transactions']:
+                print('------------------------------------------------------------------------')
+                logger.info('Fetching transactions info')
+                validators = await fetch_wallet_transactions(validators=validators, session=session)
+            if config['metrics']['delegators']:
+                print('------------------------------------------------------------------------')
+                logger.info('Fetching delegators info')
+                validators = await get_delegators_number(validators=validators, session=session)
+            if config['metrics']['validator_creation_block']:
+                print('------------------------------------------------------------------------')
+                logger.info('Fetching validator creation info')
+                validators = await get_validator_creation_info(validators=validators, session=session)
+
             print('------------------------------------------------------------------------')
             logger.info('Fetching tombstones info')
             validators = await check_valdiator_tomb(validators=validators, session=session)
             print('------------------------------------------------------------------------')
-            logger.info('Started indexing blocks')
-            await parse_signatures_batches(validators=validators, session=session, start_height=config['start_height'], batch_size=config['batch_size'])
+             
+            if config.get('start_height') is None:
+                logger.info(f'Start height not provided. Trying to fetch lowest height on the RPC')
+
+            start_height = config.get('start_height', 0)
+            rpc_lowest_height = await session.fetch_lowest_height()
+
+            if rpc_lowest_height:
+                if rpc_lowest_height > start_height:
+                    start_height = rpc_lowest_height
+                    print('------------------------------------------------------------------------')
+                    logger.error(f"Config or default start height [{config.get('start_height', 0)}] < Lowest height available on the RPC [{rpc_lowest_height}]")
+            else:
+                logger.error(f'Failed to check lowest height available on the RPC [{rpc_lowest_height}]')
+
+            logger.info(f'Indexing blocks from the height: {start_height}')
+            print('------------------------------------------------------------------------')
+
+            await parse_signatures_batches(validators=validators, session=session, start_height=start_height, batch_size=config['batch_size'])
         else:
 
             with open('metrics.json', 'r') as file:
@@ -211,6 +257,15 @@ async def main():
                 print('------------------------------------------------------------------------')
                 logger.info(f"Continue indexing blocks from {metrics_data.get('latest_height')}")
                 await parse_signatures_batches(validators=validators, session=session, start_height=latest_indexed_height, batch_size=config['batch_size'])
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print('\n------------------------------------------------------------------------')
+        logger.info("The script was stopped")
+        print('------------------------------------------------------------------------\n')
+        exit(0)
 
 if __name__ == "__main__":
     try:

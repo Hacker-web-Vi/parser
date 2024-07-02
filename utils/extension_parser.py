@@ -9,8 +9,8 @@ import struct
 proto_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'proto'))
 sys.path.append(proto_dir)
 
-from pp.types_pb2 import ExtendedCommitInfo
-from pp.slinky.abci.v1.vote_extensions_pb2 import OracleVoteExtension
+from utils.proto.types_pb2 import ExtendedCommitInfo
+from utils.proto.slinky.abci.v1.vote_extensions_pb2 import OracleVoteExtension
 
 
 class ExtensionParser:
