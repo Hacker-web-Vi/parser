@@ -106,9 +106,8 @@ def process_extension(tx: str):
         extension_validators = extension_parser.parse_votes_extension(tx=tx)
         data = {}
         for validator in extension_validators:
-            valcons = decoder.convert_consenses_pubkey_to_valcons(consensus_pub_key=None, address_bytes=validator['validator_address'])
+            valcons = decoder.convert_consenses_pubkey_to_valcons(address_bytes=validator['validator_address'])
             data[valcons] = 1 if validator['pairs'] else 0
-
         return data
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
@@ -165,8 +164,6 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
                             validator['total_signed_blocks'] += 1
                         else:
                             validator['total_missed_blocks'] += 1
-
-
                         if extension.get(validator['valcons']):
                             validator['total_oracle_votes'] += 1
                         else:
