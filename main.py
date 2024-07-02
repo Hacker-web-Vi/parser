@@ -146,7 +146,7 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
                 asyncio.gather(*tx_tasks)
             )
 
-            parsed_extensions = []
+            # parsed_extensions = []
             # for tx in txs: 
             #     parsed_extensions.append(process_extension(tx))
 
@@ -159,7 +159,7 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
                 # parsed_extensions = pool.map(process_extension, txs)
 
             try:
-                with Pool(os.cpu_count() - 1) as pool:
+                with Pool(os.cpu_count() - 5) as pool:
                     print(f"Number of processes started: {pool._processes}")
                     parsed_extensions = pool.map(process_extension, txs)
             except KeyboardInterrupt:
