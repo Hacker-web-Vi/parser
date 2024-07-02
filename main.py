@@ -93,7 +93,6 @@ async def parse_signatures_batches(validators, session, start_height, batch_size
         logger.error("Failed to fetch RPC latest height. RPC is not reachable. Exiting.")
         exit(1)
 
-
     with tqdm(total=rpc_latest_height, desc="Parsing Blocks", unit="block", initial=start_height) as pbar:
 
         for start_height in range(start_height, rpc_latest_height, batch_size):
@@ -107,9 +106,11 @@ async def parse_signatures_batches(validators, session, start_height, batch_size
                 blocks_tasks.append(session.get_block(height=current_height))
                 valset_tasks.append(get_all_valset(session=session, height=current_height, max_vals=max_vals))
 
-            blocks = await asyncio.gather(*blocks_tasks)
-            valsets = await asyncio.gather(*valset_tasks)
-            
+            blocks, valsets = await asyncio.gather(
+                asyncio.gather(*blocks_tasks),
+                asyncio.gather(*valset_tasks),
+            )
+
             for block, valset in zip(blocks, valsets):
                 if block is None or valset is None:
                     logger.error("Failed to fetch block/valset info. Try to reduce batch size in config and restart. Exiting")
@@ -143,24 +144,46 @@ async def main():
             if not validators:
                 logger.error("Failed to fetch validators. API is not reachable. Exiting")
                 exit(1)
-            print('------------------------------------------------------------------------')
-            logger.info('Fetching slashing info')
-            validators = await get_slashing_info(validators=validators, session=session)
-            print('------------------------------------------------------------------------')
-            logger.info('Fetching transactions info')
-            validators = await fetch_wallet_transactions(validators=validators, session=session)
-            print('------------------------------------------------------------------------')
-            logger.info('Fetching delegators info')
-            # validators = await get_delegators_number(validators=validators, session=session)
-            print('------------------------------------------------------------------------')
-            logger.info('Fetching validator creation info')
-            validators = await get_validator_creation_info(validators=validators, session=session)
+            if config['metrics']['jails_info']:
+                print('------------------------------------------------------------------------')
+                logger.info('Fetching slashing info')
+                validators = await get_slashing_info(validators=validators, session=session)
+            if config['metrics']['wallet_transactions']:
+                print('------------------------------------------------------------------------')
+                logger.info('Fetching transactions info')
+                validators = await fetch_wallet_transactions(validators=validators, session=session)
+            if config['metrics']['delegators']:
+                print('------------------------------------------------------------------------')
+                logger.info('Fetching delegators info')
+                validators = await get_delegators_number(validators=validators, session=session)
+            if config['metrics']['validator_creation_block']:
+                print('------------------------------------------------------------------------')
+                logger.info('Fetching validator creation info')
+                validators = await get_validator_creation_info(validators=validators, session=session)
+
             print('------------------------------------------------------------------------')
             logger.info('Fetching tombstones info')
             validators = await check_valdiator_tomb(validators=validators, session=session)
             print('------------------------------------------------------------------------')
-            logger.info('Started indexing blocks')
-            await parse_signatures_batches(validators=validators, session=session, start_height=config['start_height'], batch_size=config['batch_size'])
+             
+            if config.get('start_height') is None:
+                logger.info(f'Start height not provided. Trying to fetch lowest height on the RPC')
+
+            start_height = config.get('start_height', 0)
+            rpc_lowest_height = await session.fetch_lowest_height()
+
+            if rpc_lowest_height:
+                if rpc_lowest_height > start_height:
+                    start_height = rpc_lowest_height
+                    print('------------------------------------------------------------------------')
+                    logger.error(f"Config or default start height [{config.get('start_height', 0)}] < Lowest height available on the RPC [{rpc_lowest_height}]")
+            else:
+                logger.error(f'Failed to check lowest height available on the RPC [{rpc_lowest_height}]')
+
+            logger.info(f'Indexing blocks from the height: {start_height}')
+            print('------------------------------------------------------------------------')
+
+            await parse_signatures_batches(validators=validators, session=session, start_height=start_height, batch_size=config['batch_size'])
         else:
 
             with open('metrics.json', 'r') as file:

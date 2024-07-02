@@ -14,7 +14,6 @@ class AioHttpCalls:
                  
         self.api = config['api']
         self.rpc = config['rpc']
-        self.stake_denom = config['stake_denom']
         self.logger = logger
         self.timeout = timeout
         self.session = None
@@ -201,3 +200,20 @@ class AioHttpCalls:
         
         return await self.handle_request(url, process_response)
     
+    async def fetch_lowest_height(self):
+        url = f"{self.rpc}/block?height=1"
+
+        async def process_response(response):
+            data = await response
+
+            error_data = data.get("error")
+            if error_data:
+                error_message = error_data.get("data", None)
+                if error_message:
+                    return int(error_message.split()[-1])
+            
+            return int(data.get("result", {}).get("block", {}).get("header", {}).get("height"))
+                
+        return await self.handle_request(url, process_response)
+
+        
