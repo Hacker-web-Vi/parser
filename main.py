@@ -145,7 +145,7 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
             )
 
             try:
-                with Pool(os.cpu_count() - 10) as pool:
+                with Pool(os.cpu_count() - 1) as pool:
                     parsed_extensions = pool.map(process_extension, txs)
             except (Exception, KeyboardInterrupt):
                 pool.close()
