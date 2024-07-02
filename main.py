@@ -160,12 +160,10 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
 
             try:
                 with Pool(os.cpu_count() - 5) as pool:
-                    print(f"Number of processes started: {pool._processes}")
                     parsed_extensions = pool.map(process_extension, txs)
             except KeyboardInterrupt:
                 pool.terminate()
                 pool.join()
-                print("Process terminated by user")
                 return
     
             for block, valset, extension in zip(blocks, valsets, parsed_extensions):
