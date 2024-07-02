@@ -17,7 +17,7 @@ with open('metrics.json', 'r') as f:
 sorted_data = sorted(data['validators'], key=lambda x: x['total_signed_blocks'], reverse=True)
 
 
-headers = ["#","Moniker", "Total Signed Blocks", "Total Missed Blocks", "Total Oracle Votes", "Total Missed Oracle Votes", "Slashing Info Length"]
+headers = ["#","Moniker", "Total Signed Blocks", "Total Missed Blocks", "Total Oracle Votes", "Total Missed Oracle Votes", "Jails Number", "Voted Proposals"]
 
 rows = []
 for index, validator in enumerate(sorted_data, start=1):
@@ -27,6 +27,7 @@ for index, validator in enumerate(sorted_data, start=1):
     total_oracle_votes = validator.get('total_oracle_votes', 0)
     total_missed_oracle_votes = validator.get('total_missed_oracle_votes', 0)
     slashing_info_length = len(validator.get('slashing_info', [])) if validator.get('slashing_info') is not None else 0
+    gov_info_length = len(validator.get('governance', {})) if validator.get('slashing_info') is not None else 0
 
     rows.append([
         index,
@@ -35,7 +36,8 @@ for index, validator in enumerate(sorted_data, start=1):
         total_missed_blocks,
         total_oracle_votes,
         total_missed_oracle_votes,
-        slashing_info_length
+        slashing_info_length,
+        gov_info_length
     ])
 
-print(tabulate(rows, headers=headers))
+print(tabulate(rows, headers=headers, tablefmt="grid"))
