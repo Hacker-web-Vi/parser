@@ -59,21 +59,21 @@ async def get_validator_creation_info(validators, session):
     task = [session.get_validator_creation_block(validator['valoper']) for validator in validators]
     results = await asyncio.gather(*task)
     for validator, result in zip(validators, results):
-        validator['creation_info'] = result
+        validator['validator_creation_info'] = result
     return validators
 
 async def check_valdiator_tomb(validators, session):
     task = [session.get_validator_tomb(validator['valcons']) for validator in validators]
     results = await asyncio.gather(*task)
     for validator, result in zip(validators, results):
-        validator['tombstoned'] = result
+        validator['tombstoned'] = result if result is not None else False
     return validators
 
 async def fetch_wallet_transactions(validators, session):
-    task = [session.get_transactions_count(validator['wallet']) for validator in validators]
+    task = [session.get_gov_votes(validator['wallet']) for validator in validators]
     results = await asyncio.gather(*task)
     for validator, result in zip(validators, results):
-        validator['transactions'] = result
+        validator['governance'] = result
     return validators
 
 async def get_all_valset(session, height, max_vals):
@@ -106,7 +106,7 @@ def process_extension(tx: str):
         extension_validators = extension_parser.parse_votes_extension(tx=tx)
         data = {}
         for validator in extension_validators:
-            valcons = decoder.convert_consenses_pubkey_to_valcons(consensus_pub_key=None, address_data=validator['validator_address'])
+            valcons = decoder.convert_consenses_pubkey_to_valcons(consensus_pub_key=None, address_bytes=validator['validator_address'])
             data[valcons] = 1 if validator['pairs'] else 0
 
         return data
@@ -145,7 +145,7 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
             )
 
             try:
-                with Pool(os.cpu_count() - 1) as pool:
+                with Pool(os.cpu_count() - 10) as pool:
                     parsed_extensions = pool.map(process_extension, txs)
             except (Exception, KeyboardInterrupt):
                 pool.close()
@@ -190,22 +190,22 @@ async def main(initial = True):
             if not validators:
                 logger.error("Failed to fetch validators. API is not reachable. Exiting")
                 exit(1)
+            if config['metrics']['validator_creation_block']:
+                print('------------------------------------------------------------------------')
+                logger.info('Fetching validator creation info')
+                validators = await get_validator_creation_info(validators=validators, session=session)
             if config['metrics']['jails_info']:
                 print('------------------------------------------------------------------------')
                 logger.info('Fetching slashing info')
                 validators = await get_slashing_info(validators=validators, session=session)
-            if config['metrics']['wallet_transactions']:
+            if config['metrics']['governance_participation']:
                 print('------------------------------------------------------------------------')
-                logger.info('Fetching transactions info')
+                logger.info('Fetching governance participation')
                 validators = await fetch_wallet_transactions(validators=validators, session=session)
             if config['metrics']['delegators']:
                 print('------------------------------------------------------------------------')
                 logger.info('Fetching delegators info')
                 validators = await get_delegators_number(validators=validators, session=session)
-            if config['metrics']['validator_creation_block']:
-                print('------------------------------------------------------------------------')
-                logger.info('Fetching validator creation info')
-                validators = await get_validator_creation_info(validators=validators, session=session)
 
             print('------------------------------------------------------------------------')
             logger.info('Fetching tombstones info')

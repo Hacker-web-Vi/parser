@@ -86,43 +86,40 @@ class AioHttpCalls:
         return await self.handle_request(url, process_response) 
     
     async def get_validator_creation_block(self, valoper: str) -> dict:
-        url=f"{self.api}/cosmos/tx/v1beta1/txs?events=create_validator.validator%3D%27{valoper}%27"
+        url=f"{self.rpc}/tx_search?query=%22create_validator.validator=%27{valoper}%27%22"
 
         async def process_response(response):
             data = await response
-            if data.get('tx_responses', []):
-                return {'block': data.get('tx_responses',[{}])[0].get('height'),'time': data.get('tx_responses',[{}])[0].get('timestamp'), 'txhash': data.get('tx_responses',[{}])[0].get('txhash')}
+            if data:
+                for transaction in data['result']['txs']:
+                    if transaction.get('tx_result',{}).get('code') == 0:
+                        return {'tx_hash': transaction.get('hash'),'height': transaction.get('height')}
 
         return await self.handle_request(url, process_response)
 
-    async def get_transactions_count(self, wallet: str) -> dict:
-        url=f"{self.rpc}/tx_search?query=%22message.sender=%27{wallet}%27%22"
-
+    async def get_gov_votes(self, wallet: str) -> dict:
+        url=f"{self.rpc}/tx_search?query=%22proposal_vote.voter=%27{wallet}%27%22"
+        
         async def process_response(response):
             data = await response
-            status_0_count = 0
-            other_status_count = 0
-            governance_participation = False
+
+            voted_proposals = {}
             if data.get('result',{}).get('txs', []):
                 for tx in data["result"]["txs"]:
                     if tx["tx_result"]["code"] == 0:
-                        status_0_count += 1
-                        log_entries = json.loads(tx["tx_result"]["log"])
-                        for entry in log_entries:
-                            events = entry.get("events", [])
-                            if events:
-                                for event in events:
-                                    attributes = event.get("attributes", [])
-                                    if attributes:
-                                        for attr in attributes:
-                                            if attr.get("value") == "/cosmos.gov.v1.MsgVote":
-                                                governance_participation = True
-                    else:
-                        other_status_count += 1
-
-
-                return {'successful': status_0_count,'failed': other_status_count, 'total': data.get('result',{}).get('total_count', 0), 'gov_participate': governance_participation}
-
+                        tx_hash = tx["hash"]
+                        for event in tx["tx_result"]["events"]:
+                            if event["type"] == "proposal_vote":
+                                attributes = {attr["key"]: attr["value"] for attr in event["attributes"]}
+                                proposal_id = int(attributes["proposal_id"])
+                                option_data = json.loads(attributes["option"])
+                                option = option_data[0]["option"]
+                                if proposal_id not in voted_proposals:
+                                    voted_proposals[proposal_id] = {
+                                        "option": option,
+                                        "tx_hash": tx_hash
+                                    }
+            return voted_proposals
         return await self.handle_request(url, process_response)
 
     async def get_validators(self, status: str = None) -> list:
@@ -139,9 +136,7 @@ class AioHttpCalls:
             for validator in data['validators']:
                 info = {'moniker': validator.get('description',{}).get('moniker'),
                         'valoper': validator.get('operator_address'),
-                        'commission': validator.get('commission', {}).get('commission_rates', {}).get('rate', '0.0'),
                         'consensus_pubkey': validator.get('consensus_pubkey',{}).get('key')}
-                
                 validators.append(info)
             return validators
         
@@ -185,7 +180,6 @@ class AioHttpCalls:
             return {"height": height, "signatures": signatures, "proposer": proposer}
 
         return await self.handle_request(url, process_response)
-    
 
     async def get_valset_at_block_hex(self, height, page):
         url = f"{self.rpc}/validators?height={height}&page={page}&per_page=100"
