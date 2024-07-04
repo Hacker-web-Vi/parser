@@ -1,7 +1,6 @@
 import logging
 from colorlog import ColoredFormatter
 
-
 def setup_logger(log_level):
 
     logger = logging.getLogger(__name__)

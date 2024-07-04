@@ -3,8 +3,6 @@ import zstd
 import zlib
 import sys
 import os
-import hashlib
-import struct
 
 proto_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'proto'))
 sys.path.append(proto_dir)
@@ -41,12 +39,3 @@ class ExtensionParser:
             self.logger.error(f"Zlib error processing vote: {e}")
         except Exception as e:
             self.logger.error(f"Error processing vote: {e}")
-
-    def currency_pair_to_hash_id(self, currency_pair: str) -> int:
-        try:
-            hash_obj = hashlib.sha256()
-            hash_obj.update(currency_pair.encode('utf-8'))
-            md = hash_obj.digest()
-            return struct.unpack('<Q', md[:8])[0]
-        except Exception as e:
-            self.logger.error(f"Error getting currency_pair by id: {e}")

@@ -33,9 +33,7 @@ async def get_validators(session: AioHttpCalls):
                 validator['total_signed_blocks'] = 0
                 validator['total_missed_blocks'] = 0
                 validator['total_proposed_blocks'] = 0
-
                 validator['total_oracle_votes'] = 0
-
                 validator['total_missed_oracle_votes'] = 0
                 filtered_valdiators.append(validator)
     
@@ -115,14 +113,16 @@ def process_extension(tx: str):
 async def parse_signatures_batches(validators, session: AioHttpCalls, start_height, batch_size=300):
 
     rpc_latest_height = await session.get_latest_block_height_rpc()
+    if config.get('end_height'):
+        rpc_latest_height = config['end_height']
     if not rpc_latest_height:
         logger.error("Failed to fetch RPC latest height. RPC is not reachable. Exiting.")
         exit(1)
 
     with tqdm(total=rpc_latest_height, desc="Parsing Blocks", unit="block", initial=start_height) as pbar:
 
-        for start_height in range(start_height, rpc_latest_height, batch_size):
-            end_height = min(start_height + batch_size, rpc_latest_height)
+        for height in range(start_height, rpc_latest_height, batch_size):
+            end_height = min(height + batch_size, rpc_latest_height)
             max_vals = config.get('max_number_of_valdiators_ever_in_the_active_set') or 125
 
             signature_tasks = []
@@ -146,14 +146,14 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
             try:
                 with Pool(os.cpu_count() - 1) as pool:
                     parsed_extensions = pool.map(process_extension, txs)
-            except (Exception, KeyboardInterrupt):
+            except (Exception, KeyboardInterrupt) as e:
+                logger.error(f"Failed to process block extension. Exiting: {e}")
                 pool.close()
                 exit(1)
     
             for block, valset, extension in zip(blocks, valsets, parsed_extensions):
-
                 if block is None or valset is None or extension is None:
-                    logger.error("Failed to fetch block/valset info. Try to reduce batch size in config and restart. Exiting")
+                    logger.error("Failed to fetch block/valset info. Try to reduce batch size or increase start_height in config and restart. Exiting")
                     exit(1)
 
                 for validator in validators:

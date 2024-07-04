@@ -1,6 +1,6 @@
 import base64
-from hashlib import sha256
 import bech32
+from hashlib import sha256
 
 class Decoder:
     def __init__(self, bech32_prefix : str, logger):
@@ -18,18 +18,14 @@ class Decoder:
 
         data = bech32.convertbits(address_bytes, 8, 5)
 
-        bech32_address = bech32.bech32_encode(f"{self.bech32_prefix}valcons", data)
-
-        return bech32_address
+        return bech32.bech32_encode(f"{self.bech32_prefix}valcons", data)
                 
     def conver_valcons_to_hex(self, valcons: str) -> str:
         _ , data = bech32.bech32_decode(valcons)
         witness = bech32.convertbits(data, 5, 8, False)
-        hex_address = ''.join(format(byte, '02x') for byte in witness).upper()
-        return hex_address
+        return ''.join(format(byte, '02x') for byte in witness).upper()
 
     def convert_valoper_to_account(self, valoper: str) -> str:
         prefix, words = bech32.bech32_decode(valoper)
         account_prefix = prefix.replace("valoper", "")
-        account_address = bech32.bech32_encode(account_prefix, words)
-        return account_address
+        return bech32.bech32_encode(account_prefix, words)

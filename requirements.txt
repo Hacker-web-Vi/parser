@@ -3,4 +3,6 @@ PyYAML
 aiohttp
 colorlog
 zstd
+base64
+bech32
 protobuf==3.20.1

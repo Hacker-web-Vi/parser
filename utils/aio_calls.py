@@ -1,7 +1,7 @@
 import aiohttp
 import traceback
 import time
-import json
+from json import loads
 
 class AioHttpCalls:
 
@@ -112,7 +112,7 @@ class AioHttpCalls:
                             if event["type"] == "proposal_vote":
                                 attributes = {attr["key"]: attr["value"] for attr in event["attributes"]}
                                 proposal_id = int(attributes["proposal_id"])
-                                option_data = json.loads(attributes["option"])
+                                option_data = loads(attributes["option"])
                                 option = option_data[0]["option"]
                                 if proposal_id not in voted_proposals:
                                     voted_proposals[proposal_id] = {
@@ -152,6 +152,7 @@ class AioHttpCalls:
                 for block in data['result']['blocks']:
                     blocks.append({'height': block.get('block',{}).get('header',{}).get('height'), 'time': block.get('block',{}).get('header',{}).get('time')})
                 return blocks
+            
         return await self.handle_request(url, process_response)
     
     async def get_valset_at_block(self, height):
@@ -177,7 +178,7 @@ class AioHttpCalls:
                 signatures.append(signature['validator_address'])
             proposer = data['result']['signed_header']['header']['proposer_address']
             
-            return {"height": height, "signatures": signatures, "proposer": proposer}
+            return {'height': height, 'signatures': signatures, 'proposer': proposer}
 
         return await self.handle_request(url, process_response)
 
@@ -209,12 +210,12 @@ class AioHttpCalls:
         async def process_response(response):
             data = await response
 
-            error_data = data.get("error")
+            error_data = data.get('error')
             if error_data:
-                error_message = error_data.get("data", None)
+                error_message = error_data.get('data', None)
                 if error_message:
                     return int(error_message.split()[-1])
             
-            return int(data.get("result", {}).get("block", {}).get("header", {}).get("height"))
+            return int(data.get('result', {}).get('block', {}).get('header', {}).get('height'))
                 
         return await self.handle_request(url, process_response)

@@ -1,21 +1,20 @@
-import json
-from tabulate import tabulate
 import unicodedata
-import emoji
+from json import load
+from tabulate import tabulate
+from emoji import demojize
 
 def format_moniker(moniker: str, max_length: int=30):
     try:
-        moniker = ''.join([c for c in unicodedata.normalize('NFKD', emoji.demojize(moniker)) if not unicodedata.combining(c)])
+        moniker = ''.join([c for c in unicodedata.normalize('NFKD', demojize(moniker)) if not unicodedata.combining(c)])
         moniker = ''.join(c for c in moniker if c.isalnum() or c.isspace() or c == '_' or c == '-' or c == '.').replace('ꝏ', ' ').strip()[:max_length]
         return moniker
     except Exception:
         return moniker
         
 with open('metrics.json', 'r') as f:
-    data = json.load(f)
+    data = load(f)
 
 sorted_data = sorted(data['validators'], key=lambda x: x['total_signed_blocks'], reverse=True)
-
 
 headers = ["#","Moniker", "Total Signed Blocks", "Total Missed Blocks", "Total Oracle Votes", "Total Missed Oracle Votes", "Jails Number", "Voted Proposals"]
 
