@@ -85,45 +85,15 @@ class AioHttpCalls:
 
         return await self.handle_request(url, process_response) 
     
-    async def get_validator_creation_block(self, valoper: str) -> dict:
-        url=f"{self.api}/cosmos/tx/v1beta1/txs?events=create_validator.validator%3D%27{valoper}%27"
+    # async def get_validator_creation_block(self, valoper: str) -> dict:
+    #     url=f"{self.api}/cosmos/tx/v1beta1/txs?events=create_validator.validator%3D%27{valoper}%27"
 
-        async def process_response(response):
-            data = await response
-            if data.get('tx_responses', []):
-                return {'block': data.get('tx_responses',[{}])[0].get('height'),'time': data.get('tx_responses',[{}])[0].get('timestamp'), 'txhash': data.get('tx_responses',[{}])[0].get('txhash')}
+    #     async def process_response(response):
+    #         data = await response
+    #         if data.get('tx_responses', []):
+    #             return {'block': data.get('tx_responses',[{}])[0].get('height'),'time': data.get('tx_responses',[{}])[0].get('timestamp'), 'txhash': data.get('tx_responses',[{}])[0].get('txhash')}
 
-        return await self.handle_request(url, process_response)
-
-    async def get_transactions_count(self, wallet: str) -> dict:
-        url=f"{self.rpc}/tx_search?query=%22message.sender=%27{wallet}%27%22"
-
-        async def process_response(response):
-            data = await response
-            status_0_count = 0
-            other_status_count = 0
-            governance_participation = False
-            if data.get('result',{}).get('txs', []):
-                for tx in data["result"]["txs"]:
-                    if tx["tx_result"]["code"] == 0:
-                        status_0_count += 1
-                        log_entries = json.loads(tx["tx_result"]["log"])
-                        for entry in log_entries:
-                            events = entry.get("events", [])
-                            if events:
-                                for event in events:
-                                    attributes = event.get("attributes", [])
-                                    if attributes:
-                                        for attr in attributes:
-                                            if attr.get("value") == "/cosmos.gov.v1.MsgVote":
-                                                governance_participation = True
-                    else:
-                        other_status_count += 1
-
-
-                return {'successful': status_0_count,'failed': other_status_count, 'total': data.get('result',{}).get('total_count', 0), 'gov_participate': governance_participation}
-
-        return await self.handle_request(url, process_response)
+        # return await self.handle_request(url, process_response)
 
     async def get_validators(self, status: str = None) -> dict:
         status_urls = {
@@ -137,9 +107,7 @@ class AioHttpCalls:
             data = await response
             validators = []
             for validator in data['validators']:
-                info = {'moniker': validator.get('description',{}).get('moniker'),
-                        'valoper': validator.get('operator_address'),
-                        'commission': validator.get('commission', {}).get('commission_rates', {}).get('rate', '0.0'),
+                info = {'valoper': validator.get('operator_address'),
                         'consensus_pubkey': validator.get('consensus_pubkey',{}).get('key')}
                 
                 validators.append(info)
@@ -155,10 +123,22 @@ class AioHttpCalls:
             data = await response
             if data.get('result',{}).get('blocks'):
                 for block in data['result']['blocks']:
+                    print({'height': block.get('block',{}).get('header',{}).get('height'), 'time': block.get('block',{}).get('header',{}).get('time')})
                     blocks.append({'height': block.get('block',{}).get('header',{}).get('height'), 'time': block.get('block',{}).get('header',{}).get('time')})
                 return blocks
         return await self.handle_request(url, process_response)
-    
+
+
+    # async def get_slashes(self, valoper: str):
+    #     url = f'{self.api}/cosmos/distribution/v1beta1/validators/{valoper}/slashes?starting_height=1&ending_height=9999999999'
+        
+    #     async def process_response(response):
+    #         data = await response
+    #         return len(data['slashes'])
+    #     return await self.handle_request(url, process_response)
+
+# 
+
     async def get_valset_at_block(self, height):
         url = f"{self.api}/cosmos/base/tendermint/v1beta1/validatorsets/{height}?&pagination.limit=100000"
         
@@ -187,9 +167,10 @@ class AioHttpCalls:
         return await self.handle_request(url, process_response)
     
 
-    async def get_valset_at_block_hex(self, height, page):
-        url = f"{self.rpc}/validators?height={height}&page={page}&per_page=100"
-        
+    async def get_valset_at_block_hex(self, height):
+        # url = f"{self.rpc}/validators?height={height}&page={page}&per_page=100"
+        url = f"{self.rpc}/validators?height={height}"
+
         async def process_response(response):
             data = await response
             valset_hex = []
