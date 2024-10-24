@@ -32,12 +32,26 @@ async def get_slashing_info(validators, session: AioHttpCalls):
         validator['slashes'] = result
     return validators
 
+    # for validator in validators:
+    #     result = await session.get_slashing_info_archive(validator['valcons'])
+    #     await asyncio.sleep(0.01)
+    #     print(f"Slashes: {result}")
+    #     validator['slashes'] = result or [] 
+    # return validators
+
 async def get_delegators_number(validators, session: AioHttpCalls):
     task = [session.get_total_delegators(validator['valoper']) for validator in validators]
     results = await asyncio.gather(*task)
     for validator, result in zip(validators, results):
-        validator['delegators_count'] = result
+        validator['delegators_count'] = result or 0
     return validators
+
+    # for validator in validators:
+    #     result = await session.get_total_delegators(validator['valoper'])
+    #     await asyncio.sleep(0.5)
+    #     print(f"Delegators: {result}")
+    #     validator['delegators_count'] = result or 0
+    # return validators
 
 # async def get_validator_creation_info(validators, session: AioHttpCalls):
 #     task = [session.get_validator_creation_block(validator['valoper']) for validator in validators]
@@ -52,6 +66,13 @@ async def check_valdiator_tomb(validators, session: AioHttpCalls):
     for validator, result in zip(validators, results):
         validator['tombstoned'] = result
     return validators
+
+    # for validator in validators:
+    #     result = await session.get_validator_tomb(validator['valcons'])
+    #     await asyncio.sleep(0.5)
+    #     print(f"Tomb: {result}")
+    #     validator['tombstoned'] = result or False
+    # return validators
 
 # async def fetch_wallet_transactions(validators, session: AioHttpCalls):
 #     task = [session.get_transactions_count(validator['wallet']) for validator in validators]

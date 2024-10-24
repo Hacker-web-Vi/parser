@@ -123,7 +123,6 @@ class AioHttpCalls:
             data = await response
             if data.get('result',{}).get('blocks'):
                 for block in data['result']['blocks']:
-                    print({'height': block.get('block',{}).get('header',{}).get('height'), 'time': block.get('block',{}).get('header',{}).get('time')})
                     blocks.append({'height': block.get('block',{}).get('header',{}).get('height'), 'time': block.get('block',{}).get('header',{}).get('time')})
                 return blocks
         return await self.handle_request(url, process_response)
@@ -169,7 +168,7 @@ class AioHttpCalls:
 
     async def get_valset_at_block_hex(self, height):
         # url = f"{self.rpc}/validators?height={height}&page={page}&per_page=100"
-        url = f"{self.rpc}/validators?height={height}"
+        url = f"{self.rpc}/validators?height={height}&per_page=100"
 
         async def process_response(response):
             data = await response
