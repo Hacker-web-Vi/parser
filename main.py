@@ -18,49 +18,89 @@ decoder = Decoder(bech32_prefix=config['bech_32_prefix'], logger=logger)
 async def get_validators(session):
     validators = await session.get_validators(status=None)
     if validators:
-        for validator in validators:
+        for index, validator  in enumerate(validators, start=1):
             validator['wallet'] = decoder.convert_valoper_to_account(valoper=validator['valoper'])
             validator['valcons'] = decoder.convert_consenses_pubkey_to_valcons(consensus_pub_key=validator['consensus_pubkey'])
             validator['hex'] = decoder.conver_valcons_to_hex(valcons=validator['valcons'])
             validator['total_signed_blocks'] = 0
             validator['total_missed_blocks'] = 0
             validator['total_proposed_blocks'] = 0
+            validator['index'] = index
         return validators
 
-async def get_slashing_info(validators, session):
-    task = [session.get_slashing_info_archive(validator['valcons']) for validator in validators]
-    results = await asyncio.gather(*task)
-    for validator, result in zip(validators, results):
-        validator['slashing_info'] = result
-    return validators
 
-async def get_delegators_number(validators, session):
-    task = [session.get_total_delegators(validator['valoper']) for validator in validators]
-    results = await asyncio.gather(*task)
-    for validator, result in zip(validators, results):
-        validator['delegators_count'] = result
-    return validators
+async def get_slashing_info(validators, session, total_vals, batch_size=10):
+    all_validators = []
+    
+    for i in range(0, len(validators), batch_size):
+        batch = validators[i:i + batch_size]
+        batch_tasks = []
+        for validator in batch:
+            batch_tasks.append(session.get_slashing_info_archive(validator['valcons']))
+        
+        batch_results = await asyncio.gather(*batch_tasks)
 
-async def get_validator_creation_info(validators, session):
-    task = [session.get_validator_creation_block(validator['valoper']) for validator in validators]
-    results = await asyncio.gather(*task)
-    for validator, result in zip(validators, results):
-        validator['creation_info'] = result
-    return validators
+        for validator, slashing_info in zip(batch, batch_results):
+            validator['slashing_info'] = slashing_info
+            logger.info(f"Fetched slashing info for {validator['valoper'].ljust(3)} | {validator['index']} / {total_vals}")
+        
+        all_validators.extend(batch)
+    
+    return all_validators
 
-async def check_valdiator_tomb(validators, session):
-    task = [session.get_validator_tomb(validator['valcons']) for validator in validators]
-    results = await asyncio.gather(*task)
-    for validator, result in zip(validators, results):
-        validator['tombstoned'] = result
-    return validators
+async def get_delegators_number(validators, session, total_vals, batch_size=10):
+    all_validators = []
+    
+    for i in range(0, len(validators), batch_size):
+        batch = validators[i:i + batch_size]
+        batch_tasks = []
+        for validator in batch:
+            batch_tasks.append(session.get_total_delegators(validator['valoper']))
+        
+        batch_results = await asyncio.gather(*batch_tasks)
 
-async def fetch_wallet_transactions(validators, session):
-    task = [session.get_transactions_count(validator['wallet']) for validator in validators]
-    results = await asyncio.gather(*task)
-    for validator, result in zip(validators, results):
-        validator['transactions'] = result
-    return validators
+        for validator, slashing_info in zip(batch, batch_results):
+            validator['delegators_count'] = slashing_info
+            logger.info(f"Fetched delegators info for {validator['valoper'].ljust(3)} | {validator['index']} / {total_vals}")
+        
+        all_validators.extend(batch)
+    
+    return all_validators
+
+async def check_valdiator_tomb(validators, session, total_vals, batch_size=10):
+    all_validators = []
+
+    for i in range(0, len(validators), batch_size):
+        batch = validators[i:i + batch_size]
+        batch_tasks = []
+        for validator in batch:
+            batch_tasks.append(session.get_validator_tomb(validator['valcons']))
+        
+        batch_results = await asyncio.gather(*batch_tasks)
+
+        for validator, slashing_info in zip(batch, batch_results):
+            validator['tombstoned'] = slashing_info
+            logger.info(f"Fetched double sign info for {validator['valoper'].ljust(3)} | {validator['index']} / {total_vals}")
+        
+        all_validators.extend(batch)
+    
+    return all_validators
+
+
+
+# async def get_validator_creation_info(validators, session):
+    # task = [session.get_validator_creation_block(validator['valoper']) for validator in validators]
+    # results = await asyncio.gather(*task)
+    # for validator, result in zip(validators, results):
+    #     validator['creation_info'] = result
+    # return validators
+
+# async def fetch_wallet_transactions(validators, session):
+#     task = [session.get_transactions_count(validator['wallet']) for validator in validators]
+#     results = await asyncio.gather(*task)
+    # for validator, result in zip(validators, results):
+        # validator['transactions'] = result
+    # return validators
 
 async def get_all_valset(session, height, max_vals):
     valset_tasks = []
@@ -141,31 +181,41 @@ async def main():
             print('------------------------------------------------------------------------')
             logger.info('Fetching latest validators set')
             validators = await get_validators(session=session)
+            
             if not validators:
                 logger.error("Failed to fetch validators. API is not reachable. Exiting")
                 exit(1)
-            if config['metrics']['jails_info']:
+            
+            total_vals = len(validators)
+
+            if config['metrics']['jails']:
                 print('------------------------------------------------------------------------')
                 logger.info('Fetching slashing info')
-                validators = await get_slashing_info(validators=validators, session=session)
-            if config['metrics']['wallet_transactions']:
-                print('------------------------------------------------------------------------')
-                logger.info('Fetching transactions info')
-                validators = await fetch_wallet_transactions(validators=validators, session=session)
+                validators = await get_slashing_info(validators=validators, session=session, total_vals=total_vals)
+
             if config['metrics']['delegators']:
                 print('------------------------------------------------------------------------')
                 logger.info('Fetching delegators info')
-                validators = await get_delegators_number(validators=validators, session=session)
-            if config['metrics']['validator_creation_block']:
-                print('------------------------------------------------------------------------')
-                logger.info('Fetching validator creation info')
-                validators = await get_validator_creation_info(validators=validators, session=session)
+                validators = await get_delegators_number(validators=validators, session=session, total_vals=total_vals)
 
-            print('------------------------------------------------------------------------')
-            logger.info('Fetching tombstones info')
-            validators = await check_valdiator_tomb(validators=validators, session=session)
-            print('------------------------------------------------------------------------')
-             
+            if config['metrics']['delegators']:
+                print('------------------------------------------------------------------------')
+                logger.info('Fetching double sign info')
+                validators = await check_valdiator_tomb(validators=validators, session=session, total_vals=total_vals)
+            
+
+
+            # if config['metrics']['validator_creation_block']:
+                # print('------------------------------------------------------------------------')
+                # logger.info('Fetching validator creation info')
+                # validators = await get_validator_creation_info(validators=validators, session=session)
+
+            # if config['metrics']['wallet_transactions']:
+                # print('------------------------------------------------------------------------')
+                # logger.info('Fetching transactions info')
+                # validators = await fetch_wallet_transactions(validators=validators, session=session)
+                
+                
             if config.get('start_height') is None:
                 logger.info(f'Start height not provided. Trying to fetch lowest height on the RPC')
 
