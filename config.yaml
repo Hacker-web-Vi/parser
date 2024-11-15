@@ -1,8 +1,11 @@
 rpc: "http://127.0.0.1:26294"
 api: "http://127.0.0.1:1389"
-bech_32_prefix: "evmos"
-stake_denom: "aevmos"
-chain_id: "zgtendermint_9000-1"
-batch_size: 100
-start_height: 1
+bech_32_prefix: "0g"
+batch_size: 150
+start_height: 1564327
 log_lvl: "INFO"
+
+metrics:
+  jails: true
+  delegators: false
+  tombstones: true
