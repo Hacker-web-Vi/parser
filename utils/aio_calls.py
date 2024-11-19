@@ -1,7 +1,6 @@
 import aiohttp
 import traceback
 import time
-import json
 
 class AioHttpCalls:
 
@@ -14,7 +13,6 @@ class AioHttpCalls:
                  
         self.api = config['api']
         self.rpc = config['rpc']
-        self.evm_rpc = config['evm_rpc']
         self.logger = logger
         self.timeout = timeout
         self.session = None
