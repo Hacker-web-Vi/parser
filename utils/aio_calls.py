@@ -14,6 +14,7 @@ class AioHttpCalls:
                  
         self.api = config['api']
         self.rpc = config['rpc']
+        self.evm_rpc = config['evm_rpc']
         self.logger = logger
         self.timeout = timeout
         self.session = None
@@ -57,7 +58,47 @@ class AioHttpCalls:
             self.logger.debug(f"An unexpected error occurred: {e}")
             traceback.print_exc()
             return None
-    
+
+    async def handle_eth_request(self, method, params=[]):
+
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params,
+            "id": 1
+        }
+
+        try:
+            async with self.session.post(
+                self.evm_rpc, 
+                json=request_data, 
+                timeout=self.timeout
+            ) as response:
+                
+                if response.status == 200:
+                    data = await response.json()
+                    if 'error' in data:
+                        self.logger.error(f"RPC Error: {data['error']}")
+                        return None
+                    return data.get('result')
+                
+                else:
+                    self.logger.warning(f"RPC request failed with status code {response.status}")
+                    return None
+                
+        except aiohttp.ClientError as e:
+            self.logger.debug(f"Issue with making request to {url}: {e}")
+            return None
+        
+        except TimeoutError as e:
+            self.logger.debug(f"Issue with making request to {url}. TimeoutError: {e}")
+            return None
+
+        except Exception as e:
+            self.logger.debug(f"An unexpected error occurred: {e}")
+            traceback.print_exc()
+            return None
+        
     async def get_latest_block_height_rpc(self) -> str:
         url = f"{self.rpc}/abci_info"
 
@@ -85,6 +126,16 @@ class AioHttpCalls:
 
         return await self.handle_request(url, process_response) 
     
+
+    async def get_delegator_validator_pair(self, valoper: str, wallet: str) -> str:
+        url = f"{self.api}/cosmos/staking/v1beta1/validators/{valoper}/delegations/{wallet}"
+        
+        async def process_response(response):
+            data = await response
+            return float(data.get('delegation_response', {}).get('balance', {}).get('amount', 0))
+        
+        return await self.handle_request(url, process_response)
+
     # async def get_validator_creation_block(self, valoper: str) -> dict:
     #     url=f"{self.api}/cosmos/tx/v1beta1/txs?events=create_validator.validator%3D%27{valoper}%27"
 
@@ -93,7 +144,7 @@ class AioHttpCalls:
     #         if data.get('tx_responses', []):
     #             return {'block': data.get('tx_responses',[{}])[0].get('height'),'time': data.get('tx_responses',[{}])[0].get('timestamp'), 'txhash': data.get('tx_responses',[{}])[0].get('txhash')}
 
-        # return await self.handle_request(url, process_response)
+    #     return await self.handle_request(url, process_response)
 
     async def get_validators(self, status: str = None) -> dict:
         status_urls = {
@@ -108,7 +159,9 @@ class AioHttpCalls:
             validators = []
             for validator in data['validators']:
                 info = {'valoper': validator.get('operator_address'),
-                        'consensus_pubkey': validator.get('consensus_pubkey',{}).get('key')}
+                        'consensus_pubkey': validator.get('consensus_pubkey',{}).get('key'),
+                        'moniker': validator.get('description',{}).get('moniker'),
+                        'tokens': float(validator.get('tokens', 0.0))}
                 
                 validators.append(info)
             return validators
@@ -126,18 +179,7 @@ class AioHttpCalls:
                     blocks.append({'height': block.get('block',{}).get('header',{}).get('height'), 'time': block.get('block',{}).get('header',{}).get('time')})
                 return blocks
         return await self.handle_request(url, process_response)
-
-
-    # async def get_slashes(self, valoper: str):
-    #     url = f'{self.api}/cosmos/distribution/v1beta1/validators/{valoper}/slashes?starting_height=1&ending_height=9999999999'
-        
-    #     async def process_response(response):
-    #         data = await response
-    #         return len(data['slashes'])
-    #     return await self.handle_request(url, process_response)
-
-# 
-
+    
     async def get_valset_at_block(self, height):
         url = f"{self.api}/cosmos/base/tendermint/v1beta1/validatorsets/{height}?&pagination.limit=100000"
         
@@ -166,9 +208,9 @@ class AioHttpCalls:
         return await self.handle_request(url, process_response)
     
 
-    async def get_valset_at_block_hex(self, height):
-        # url = f"{self.rpc}/validators?height={height}&page={page}&per_page=100"
-        url = f"{self.rpc}/validators?height={height}&per_page=100"
+    async def get_valset_at_block_hex(self, height, page):
+        url = f"{self.rpc}/validators?height={height}&page={page}&per_page=100"
+        self.logger.debug(f"Requesting valset at block {height} & page {page}")
 
         async def process_response(response):
             data = await response
@@ -195,5 +237,3 @@ class AioHttpCalls:
             return int(data.get("result", {}).get("block", {}).get("header", {}).get("height"))
                 
         return await self.handle_request(url, process_response)
-
-        
