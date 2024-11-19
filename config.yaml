@@ -1,8 +1,15 @@
-rpc: "http://127.0.0.1:26294"
-api: "http://127.0.0.1:1389"
-bech_32_prefix: "evmos"
-stake_denom: "aevmos"
-chain_id: "zgtendermint_9000-1"
-batch_size: 100
-start_height: 1
-log_lvl: "INFO"
+api: "https://api-story-testnet.trusted-point.com"
+rpc: "https://story-testnet-rpc.itrocket.net:443"
+bech_32_prefix: "story"
+blocks_batch_size: 1
+start_height: 579168
+log_lvl: "DEBUG"
+max_active_vals: 112
+denom_exponent: 9
+
+metrics_batch_size: 5
+metrics:
+  jails: true
+  delegators: true
+  self_stake: true
+  tombstones: true
