@@ -14,6 +14,7 @@ with open('config.yaml', 'r') as config_file:
 logger = setup_logger(log_level=config['log_lvl'])
 
 async def get_validators(session: AioHttpCalls):
+    logger.info(f"Fetched validators")
     validators = await session.get_validators(status=None)
     if validators:
         for validator in validators:
