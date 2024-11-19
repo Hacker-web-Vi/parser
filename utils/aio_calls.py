@@ -59,46 +59,6 @@ class AioHttpCalls:
             traceback.print_exc()
             return None
 
-    async def handle_eth_request(self, method, params=[]):
-
-        request_data = {
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params,
-            "id": 1
-        }
-
-        try:
-            async with self.session.post(
-                self.evm_rpc, 
-                json=request_data, 
-                timeout=self.timeout
-            ) as response:
-                
-                if response.status == 200:
-                    data = await response.json()
-                    if 'error' in data:
-                        self.logger.error(f"RPC Error: {data['error']}")
-                        return None
-                    return data.get('result')
-                
-                else:
-                    self.logger.warning(f"RPC request failed with status code {response.status}")
-                    return None
-                
-        except aiohttp.ClientError as e:
-            self.logger.debug(f"Issue with making request to {url}: {e}")
-            return None
-        
-        except TimeoutError as e:
-            self.logger.debug(f"Issue with making request to {url}. TimeoutError: {e}")
-            return None
-
-        except Exception as e:
-            self.logger.debug(f"An unexpected error occurred: {e}")
-            traceback.print_exc()
-            return None
-        
     async def get_latest_block_height_rpc(self) -> str:
         url = f"{self.rpc}/abci_info"
 
