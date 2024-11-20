@@ -29,7 +29,6 @@ async def get_validators(session: AioHttpCalls, exponent):
             validator['total_missed_blocks'] = 0
             validator['total_proposed_blocks'] = 0
             validator['index'] = index
-
         return validators
 
 # async def get_slashing_info(validators, session: AioHttpCalls):
@@ -207,6 +206,9 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
                 asyncio.gather(*valset_tasks),
             )
 
+            if config['sleep_between_blocks_batch_requests']:
+                await asyncio.sleep(config['sleep_between_blocks_batch_requests'])
+
             for block, valset in zip(blocks, valsets):
                 if block is None:
                     logger.error(f"Failed to query {current_height} block\nMake sure block range {start_height} --> {end_height} is available on the RPC\nOr try to reduce blocks_batch_size size in config\nExiting")
@@ -233,6 +235,8 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
             }
             with open('metrics.json', 'w') as file:
                 json.dump(metrics_data, file)
+
+            logger.debug(f'Metrics saved. latest_height: {end_height}')
             
             if config['log_lvl'] != 'DEBUG':
                 pbar.update(end_height - start_height)
@@ -245,9 +249,10 @@ async def main():
             logger.info('Fetching latest validators set')
             validators = await get_validators(session=session, exponent=config['denom_exponent'])
             if not validators:
-                logger.error("Failed to fetch validators. API is not reachable. Exiting")
+                logger.error("Failed to fetch validators. API not reachable. Exiting")
                 exit(1)
             total_vals = len(validators)
+            logger.info(f'Fetched {total_vals} validators')
             if config['metrics']['jails']:
                 print('------------------------------------------------------------------------')
                 logger.info('Fetching slashing info')

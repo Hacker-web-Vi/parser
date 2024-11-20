@@ -7,6 +7,7 @@ start_height: 579168
 log_lvl: "INFO"
 max_active_vals: 112
 denom_exponent: 9
+sleep_between_blocks_batch_requests: 5
 
 metrics_batch_size: 5
 metrics:
