@@ -1,0 +1,16 @@
+api: "https://api-story-testnet.trusted-point.com"
+rpc: "https://story-testnet-rpc.itrocket.net:443"
+bech_32_prefix: "story"
+blocks_batch_size: 1
+start_height: 579168
+log_lvl: "INFO"
+max_active_vals: 112
+denom_exponent: 9
+sleep_between_blocks_batch_requests: 0
+
+metrics_batch_size: 5
+metrics:
+  jails: true
+  delegators: true
+  self_stake: true
+  tombstones: true
