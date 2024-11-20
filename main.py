@@ -206,7 +206,7 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
                 asyncio.gather(*valset_tasks),
             )
 
-            if config['sleep_between_blocks_batch_requests']:
+            if config.get('sleep_between_blocks_batch_requests'):
                 await asyncio.sleep(config['sleep_between_blocks_batch_requests'])
 
             for block, valset in zip(blocks, valsets):
