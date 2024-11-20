@@ -51,8 +51,9 @@ async def get_slashing_info(validators, session: AioHttpCalls, total_vals, batch
         batch_results = await asyncio.gather(*batch_tasks)
 
         for validator, slashing_info in zip(batch, batch_results):
-            validator['slashes'] = slashing_info or []
-            logger.info(f"Fetched slashing info for {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['index']} / {total_vals}")
+            slashing_info = slashing_info or []
+            validator['slashes'] = slashing_info
+            logger.info(f"Fetched slashes [{len(slashing_info)}] {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['index']} / {total_vals}")
         
         all_validators.extend(batch)
     
@@ -77,8 +78,9 @@ async def get_delegators_number(validators, session: AioHttpCalls, total_vals, b
         batch_results = await asyncio.gather(*batch_tasks)
 
         for validator, delegators in zip(batch, batch_results):
-            validator['delegators_count'] = delegators or 0
-            logger.info(f"Fetched delegators info for {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['index']} / {total_vals}")
+            delegators = delegators or 0
+            validator['delegators_count'] = delegators
+            logger.info(f"Fetched delegators [{delegators}] {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['index']} / {total_vals}")
         
         all_validators.extend(batch)
     
@@ -101,7 +103,7 @@ async def get_validator_self_stake(validators, session: AioHttpCalls, total_vals
             else:
                 tokens_conv = 0.0
             validator['self_stake'] = tokens_conv
-            logger.info(f"Fetched self stake info for {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['index']} / {total_vals}")
+            logger.info(f"Fetched self stake [{tokens_conv}] {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['index']} / {total_vals}")
         
         all_validators.extend(batch)
     
@@ -139,9 +141,10 @@ async def check_valdiator_tomb(validators, session: AioHttpCalls, total_vals, ba
         
         batch_results = await asyncio.gather(*batch_tasks)
 
-        for validator, tombstone_info in zip(batch, batch_results):
-            validator['tombstoned'] = tombstone_info or False
-            logger.info(f"Fetched double sign info {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['index']} / {total_vals}")
+        for validator, tombstoned in zip(batch, batch_results):
+            tombstoned = tombstoned or False
+            validator['tombstoned'] = tombstoned
+            logger.info(f"Fetched tombstoned [{tombstoned}] {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['index']} / {total_vals}")
         
         all_validators.extend(batch)
     
@@ -205,9 +208,15 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
             )
 
             for block, valset in zip(blocks, valsets):
-                if block is None or valset is None:
-                    logger.error("Failed to fetch block/valset info. Try to reduce batch size in config and restart. Exiting")
+                if block is None:
+                    logger.error(f"Failed to query {current_height} block\nMake sure block range {start_height} --> {end_height} is available on the RPC\nOr try to reduce blocks_batch_size size in config\nExiting")
                     exit(1)
+
+                if valset is None:
+                    logger.error(f"Failed to query valset at block {current_height}\nMake sure block range {start_height} --> {end_height} is available on the RPC\nOr try to reduce blocks_batch_size size in config\nExiting")
+                    exit(1)
+
+                logger.debug(f"Block {current_height} | Valset {len(valset)} | Sigantures {len(block['signatures'])}")
 
                 for validator in validators:
                     if validator['hex'] in valset:
@@ -231,6 +240,7 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
 async def main():
     async with AioHttpCalls(config=config, logger=logger, timeout=800) as session:
         if not os.path.exists('metrics.json'):
+            logger.info('metrics.json file will be created')
             print('------------------------------------------------------------------------')
             logger.info('Fetching latest validators set')
             validators = await get_validators(session=session, exponent=config['denom_exponent'])
@@ -273,16 +283,16 @@ async def main():
 
              
             if config.get('start_height') is None:
-                logger.info(f'Start height not provided. Trying to fetch lowest height on the RPC')
+                logger.info('start_height not provided. Will try to fetch lowest height on the RPC')
 
-            start_height = config.get('start_height', 0)
+            start_height = config.get('start_height', 1)
             rpc_lowest_height = await session.fetch_lowest_height()
 
             if rpc_lowest_height:
                 if rpc_lowest_height > start_height:
                     start_height = rpc_lowest_height
                     print('------------------------------------------------------------------------')
-                    logger.error(f"Config or default start height [{config.get('start_height', 0)}] < Lowest height available on the RPC [{rpc_lowest_height}]")
+                    logger.error(f"Config or default start height [{start_height}] < Lowest height available on the RPC [{rpc_lowest_height}]. Starting from {start_height}")
             else:
                 logger.error(f'Failed to check lowest block height available on the RPC [{rpc_lowest_height}]')
 
@@ -297,7 +307,7 @@ async def main():
                 validators = metrics_data.get('validators')
                 latest_indexed_height = metrics_data.get('latest_height', 1)
                 print('------------------------------------------------------------------------')
-                logger.info(f"Continue indexing blocks from {metrics_data.get('latest_height')}")
+                logger.info(f"Resuming indexing blocks from {metrics_data.get('latest_height')}")
                 await parse_signatures_batches(validators=validators, session=session, start_height=latest_indexed_height, max_active_vals=config.get('max_active_vals', 100), batch_size=config['blocks_batch_size'])
 
 if __name__ == "__main__":

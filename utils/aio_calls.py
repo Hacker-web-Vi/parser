@@ -180,7 +180,7 @@ class AioHttpCalls:
         
         return await self.handle_request(url, process_response)
     
-    async def fetch_lowest_height(self):
+    async def fetch_lowest_height(self) -> int:
         url = f"{self.rpc}/block?height=1"
 
         async def process_response(response):
