@@ -14,7 +14,7 @@ $(document).ready(function () {
                 // Calculate Uptime
                 var validatorUptime;
                 if (totalActiveBlocks > 0) {
-                    validatorUptime = (validator.total_signed_blocks / totalActiveBlocks * 100).toFixed(2);
+                    validatorUptime = (validator.total_signed_blocks / totalActiveBlocks * 100).toFixed(4);
                 } else {
                     validatorUptime = 0.00;
                 }
@@ -24,17 +24,23 @@ $(document).ready(function () {
                 // Total Jails and Slashes Calculation
                 var totalJails = validator.slashes ? validator.slashes.length : 0;
                 var slashes = validator.slashes || []; // Get slashes if they exist, otherwise an empty array
+                var self_stake = validator.self_stake ? validator.self_stake : 0.0;
+                var stake = validator.stake ? validator.stake : 0.0;
 
                 tableData.push([
                     index + 1,                                      // Row Number
+                    validator.moniker,                              // Moniker
                     validator.valoper,                              // Valoper
-                    validatorUptime,                                // Uptime %
+                    validatorUptime,
+                    totalJails,                                     // Uptime %
                     totalActiveBlocks,                              // Blocks Active
                     validator.total_signed_blocks,                  // Signed Blocks
                     validator.total_missed_blocks,                  // Missed Blocks
                     validator.total_proposed_blocks,                // Proposed Blocks
-                    totalJails,                                     // Total Jails
                     validator.delegators_count,                     // Delegators
+                    stake,
+                    self_stake,
+                    validator.tombstoned,
                     slashes                                        // Slashes (extra data to use later)
                 ]);
             });
@@ -46,11 +52,11 @@ $(document).ready(function () {
                 rowCallback: function (row, data, index) {
                     $('td:eq(0)', row).html(index + 1);
 
-                    var jails = data[7];
+                    var jails = data[4];
                     if (jails === 0) {
-                        $('td:eq(7)', row).html('<span style="color: green;">' + jails + '</span>');
+                        $('td:eq(4)', row).html('<span style="color: green;">' + jails + '</span>');
                     } else {
-                        $('td:eq(7)', row).html('<span style="color: red;">' + jails + '</span>');
+                        $('td:eq(4)', row).html('<span style="color: red;">' + jails + '</span>');
                     }
                 },
                 columnDefs: [
@@ -58,7 +64,7 @@ $(document).ready(function () {
                 ]
             });
 
-            var cellIndices = [8];
+            var cellIndices = [5];
     
             // Add cursor pointer class on hover for specific cells
             $('#metrics tbody').on('mouseenter mouseleave', '> tr > td', function() {
@@ -73,7 +79,7 @@ $(document).ready(function () {
             var currentShownRow = null;
 
                 // Event listener for 'Total Jails' cell
-            $('#metrics tbody').on('click', 'td:nth-child(8)', function () {
+            $('#metrics tbody').on('click', 'td:nth-child(5)', function () {
                 var tr = $(this).closest('tr');
                 var row = table.row(tr);
 

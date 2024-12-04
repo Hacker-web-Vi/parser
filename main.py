@@ -31,13 +31,6 @@ async def get_validators(session: AioHttpCalls, exponent):
             validator['index'] = index
         return validators
 
-# async def get_slashing_info(validators, session: AioHttpCalls):
-#     task = [session.get_slashing_info_archive(validator['valcons']) for validator in validators]
-#     results = await asyncio.gather(*task)
-#     for validator, result in zip(validators, results):
-#         validator['slashes'] = result
-#     return validators
-
 async def get_slashing_info(validators, session: AioHttpCalls, total_vals, batch_size=10):
     all_validators = []
     
@@ -57,13 +50,6 @@ async def get_slashing_info(validators, session: AioHttpCalls, total_vals, batch
         all_validators.extend(batch)
     
     return all_validators
-
-# async def get_delegators_number(validators, session: AioHttpCalls):
-#     task = [session.get_total_delegators(validator['valoper']) for validator in validators]
-#     results = await asyncio.gather(*task)
-#     for validator, result in zip(validators, results):
-#         validator['delegators_count'] = result or 0
-#     return validators
 
 async def get_delegators_number(validators, session: AioHttpCalls, total_vals, batch_size=10):
     all_validators = []
@@ -108,27 +94,6 @@ async def get_validator_self_stake(validators, session: AioHttpCalls, total_vals
     
     return all_validators
 
-    # for validator in validators:
-    #     result = await session.get_total_delegators(validator['valoper'])
-    #     await asyncio.sleep(0.5)
-    #     print(f"Delegators: {result}")
-    #     validator['delegators_count'] = result or 0
-    # return validators
-
-# async def get_validator_creation_info(validators, session: AioHttpCalls):
-#     task = [session.get_validator_creation_block(validator['valoper']) for validator in validators]
-#     results = await asyncio.gather(*task)
-#     for validator, result in zip(validators, results):
-#         validator['creation_info'] = result
-#     return validators
-
-# async def check_valdiator_tomb(validators, session: AioHttpCalls):
-#     task = [session.get_validator_tomb(validator['valcons']) for validator in validators]
-#     results = await asyncio.gather(*task)
-#     for validator, result in zip(validators, results):
-#         validator['tombstoned'] = result
-#     return validators
-
 async def check_valdiator_tomb(validators, session: AioHttpCalls, total_vals, batch_size=10):
     all_validators = []
 
@@ -148,20 +113,6 @@ async def check_valdiator_tomb(validators, session: AioHttpCalls, total_vals, ba
         all_validators.extend(batch)
     
     return all_validators
-
-    # for validator in validators:
-    #     result = await session.get_validator_tomb(validator['valcons'])
-    #     await asyncio.sleep(0.5)
-    #     print(f"Tomb: {result}")
-    #     validator['tombstoned'] = result or False
-    # return validators
-
-# async def fetch_wallet_transactions(validators, session: AioHttpCalls):
-#     task = [session.get_transactions_count(validator['wallet']) for validator in validators]
-#     results = await asyncio.gather(*task)
-#     for validator, result in zip(validators, results):
-#         validator['transactions'] = result
-#     return validators
 
 async def get_all_valset(session: AioHttpCalls, height, pages_to_query):
     valset_tasks = []
@@ -198,7 +149,6 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
             
             for current_height in range(start_height, end_height):
                 blocks_tasks.append(session.get_block(height=current_height))
-                # valset_tasks.append(session.get_valset_at_block_hex(height=current_height))
                 valset_tasks.append(get_all_valset(session=session, height=current_height, pages_to_query=pages_to_query))
 
             blocks, valsets = await asyncio.gather(
@@ -274,19 +224,7 @@ async def main():
                 logger.info('Fetching tombstones info')
                 validators = await check_valdiator_tomb(validators=validators, session=session, total_vals=total_vals, batch_size=config['metrics_batch_size'])
                 print('------------------------------------------------------------------------')
-
-            # if config['metrics']['wallet_transactions']:
-                # print('------------------------------------------------------------------------')
-                # logger.info('Fetching transactions info')
-                # validators = await fetch_wallet_transactions(validators=validators, session=session)
-
-            # if config['metrics']['validator_creation_block']:
-                # print('------------------------------------------------------------------------')
-                # logger.info('Fetching validator creation info')
-                # validators = await get_validator_creation_info(validators=validators, session=session)
-
-
-             
+                
             if config.get('start_height') is None:
                 logger.info('start_height not provided. Will try to fetch lowest height on the RPC')
 

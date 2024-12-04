@@ -94,16 +94,6 @@ class AioHttpCalls:
         
         return await self.handle_request(url, process_response)
 
-    # async def get_validator_creation_block(self, valoper: str) -> dict:
-    #     url=f"{self.api}/cosmos/tx/v1beta1/txs?events=create_validator.validator%3D%27{valoper}%27"
-
-    #     async def process_response(response):
-    #         data = await response
-    #         if data.get('tx_responses', []):
-    #             return {'block': data.get('tx_responses',[{}])[0].get('height'),'time': data.get('tx_responses',[{}])[0].get('timestamp'), 'txhash': data.get('tx_responses',[{}])[0].get('txhash')}
-
-    #     return await self.handle_request(url, process_response)
-
     async def get_validators(self, status: str = None) -> dict:
         status_urls = {
             "BOND_STATUS_BONDED": f"{self.api}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=100000",
@@ -165,7 +155,6 @@ class AioHttpCalls:
 
         return await self.handle_request(url, process_response)
     
-
     async def get_valset_at_block_hex(self, height, page):
         url = f"{self.rpc}/validators?height={height}&page={page}&per_page=100"
         self.logger.debug(f"Requesting valset at block {height} & page {page}")
