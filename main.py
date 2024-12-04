@@ -16,20 +16,23 @@ logger = setup_logger(log_level=config['log_lvl'])
 
 async def get_validators(session: AioHttpCalls, exponent):
     logger.info(f"Fetched validators")
+    result = []
     validators = await session.get_validators(status=None)
     if validators:
         for index, validator  in enumerate(validators, start=1):
-            validator['moniker'] = validator['moniker']
-            validator['wallet'] = pubkey_to_bech32(pub_key=validator['consensus_pubkey'], bech32_prefix=config['bech_32_prefix'])
-            validator['evm_wallet'] = uncompressed_pub_key_to_evm(public_key=decompress_pubkey(validator['consensus_pubkey']))
-            validator['valcons'] = pubkey_to_bech32(pub_key=validator['consensus_pubkey'], bech32_prefix=config['bech_32_prefix'], address_refix='valcons')
-            validator['hex'] = pubkey_to_consensus_hex(pub_key=validator['consensus_pubkey'])
-            validator['stake'] = round((validator['tokens'] / (10 ** exponent)), 1) if validator['tokens'] else 0.0
-            validator['total_signed_blocks'] = 0
-            validator['total_missed_blocks'] = 0
-            validator['total_proposed_blocks'] = 0
-            validator['index'] = index
-        return validators
+            info = {}
+            info['moniker'] = validator['moniker']
+            info['wallet'] = pubkey_to_bech32(pub_key=validator['consensus_pubkey'], bech32_prefix=config['bech_32_prefix'])
+            info['evm_wallet'] = uncompressed_pub_key_to_evm(public_key=decompress_pubkey(validator['consensus_pubkey']))
+            info['valcons'] = pubkey_to_bech32(pub_key=validator['consensus_pubkey'], bech32_prefix=config['bech_32_prefix'], address_refix='valcons')
+            info['hex'] = pubkey_to_consensus_hex(pub_key=validator['consensus_pubkey'])
+            info['stake'] = round((validator['tokens'] / (10 ** exponent)), 1) if validator['tokens'] else 0.0
+            info['total_signed_blocks'] = 0
+            info['total_missed_blocks'] = 0
+            info['total_proposed_blocks'] = 0
+            info['index'] = index
+            result.append(info)
+        return result
 
 async def get_slashing_info(validators, session: AioHttpCalls, total_vals, batch_size=10):
     all_validators = []
@@ -114,30 +117,97 @@ async def check_valdiator_tomb(validators, session: AioHttpCalls, total_vals, ba
     
     return all_validators
 
-async def get_all_valset(session: AioHttpCalls, height, pages_to_query):
-    valset_tasks = []
 
-    for page in range(1, pages_to_query + 1):
-        valset_tasks.append(session.get_valset_at_block_hex(height=height, page=page))
-    valset = await asyncio.gather(*valset_tasks)
+async def get_block_signatures(session: AioHttpCalls, height):
     
-    merged_valsets = []
+    signatures = []
+    async def fetch_with_retry(height, retries=3):
+        for attempt in range(retries):
+            try:
+                block = await session.get_block(height=height)
+                if block and 'result' in block:
+                    return block
+                else:
+                    raise ValueError("Invalid response")
+            except Exception as e:
+                if attempt < retries - 1:
+                    logger.warning(f"Retrying block {height} request (attempt {attempt + 1}) due to: {e}")
+                    await asyncio.sleep(1)
+                else:
+                    logger.error(f"Failed to fetch block {height} after {retries} attempts.")
+                    return
+       
+    block = await fetch_with_retry(height=height)
+    if block:
+        for signature in block['result']['signed_header']['commit']['signatures']:
+            signatures.append(signature['validator_address'])
+        proposer = block['result']['signed_header']['header']['proposer_address']
+        
+        return {"height": height, "signatures": signatures, "proposer": proposer}
 
-    for sublist in valset:
-        if sublist is not None:
-            for itm in  sublist:
-                merged_valsets.append(itm)
+
+async def get_all_valset(session: AioHttpCalls, height):
+    merged_valsets = []
+    page = 1
+    total = 0
+    count = 0
+
+    async def fetch_with_retry(height, page, retries=3):
+        for attempt in range(retries):
+            try:
+                sublist = await session.get_valset_at_block(height=height, page=page)
+                if sublist and 'result' in sublist:
+                    return sublist
+                else:
+                    raise ValueError("Invalid response")
+            except Exception as e:
+                if attempt < retries - 1:
+                    logger.warning(f"Retrying page {page} (attempt {attempt + 1}) due to: {e}")
+                    await asyncio.sleep(1)
+                else:
+                    logger.error(f"Failed to fetch valset page {page} after {retries} attempts.")
+                    return
+
+    while count < total or total == 0:
+        sublist = await fetch_with_retry(height, page)
+        
+        if not sublist:
+            return
+
+        validators = sublist['result']['validators']
+        merged_valsets.extend(validator['address'] for validator in validators)
+        count += int(sublist['result']['count'])
+        total = int(sublist['result']['total'])
+        page += 1
 
     return merged_valsets
 
-async def parse_signatures_batches(validators, session: AioHttpCalls, start_height: int, max_active_vals: int, batch_size=300):
+# async def get_all_valset(session: AioHttpCalls, height):
+#     merged_valsets = []
+#     page = 1
+#     total = 0
+#     count = 0
+
+#     while count < total or total == 0:
+#         sublist = await session.get_valset_at_block(height=height, page=page)
+        
+#         if not sublist or 'result' not in sublist:
+#             break
+
+#         validators = sublist['result']['validators']
+#         merged_valsets.extend(validator['address'] for validator in validators)
+#         count += int(sublist['result']['count'])
+#         total = int(sublist['result']['total'])
+#         page += 1
+
+#     return merged_valsets
+
+async def parse_signatures_batches(validators, session: AioHttpCalls, start_height: int, general_start_height: int, batch_size=100):
 
     rpc_latest_height = await session.get_latest_block_height_rpc()
     if not rpc_latest_height:
         logger.error("Failed to fetch RPC latest height. RPC is not reachable. Exiting.")
         exit(1)
-
-    pages_to_query = ceil(max_active_vals / 100)
 
     with tqdm(total=rpc_latest_height, desc="Parsing Blocks", unit="block", initial=start_height) as pbar:
 
@@ -148,8 +218,8 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
             valset_tasks = []
             
             for current_height in range(start_height, end_height):
-                blocks_tasks.append(session.get_block(height=current_height))
-                valset_tasks.append(get_all_valset(session=session, height=current_height, pages_to_query=pages_to_query))
+                blocks_tasks.append(get_block_signatures(session=session, height=current_height))
+                valset_tasks.append(get_all_valset(session=session, height=current_height))
 
             blocks, valsets = await asyncio.gather(
                 asyncio.gather(*blocks_tasks),
@@ -160,11 +230,11 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
                 await asyncio.sleep(config['sleep_between_blocks_batch_requests'])
 
             for block, valset in zip(blocks, valsets):
-                if block is None:
+                if not block:
                     logger.error(f"Failed to query {current_height} block\nMake sure block range {start_height} --> {end_height} is available on the RPC\nOr try to reduce blocks_batch_size size in config\nExiting")
                     exit(1)
 
-                if valset is None:
+                if not valset:
                     logger.error(f"Failed to query valset at block {current_height}\nMake sure block range {start_height} --> {end_height} is available on the RPC\nOr try to reduce blocks_batch_size size in config\nExiting")
                     exit(1)
 
@@ -178,8 +248,9 @@ async def parse_signatures_batches(validators, session: AioHttpCalls, start_heig
                             validator['total_signed_blocks'] += 1
                         else:
                             validator['total_missed_blocks'] += 1
-        
+
             metrics_data = {
+                'start_height': general_start_height,
                 'latest_height': end_height,
                 'validators': validators
             }
@@ -233,16 +304,17 @@ async def main():
 
             if rpc_lowest_height:
                 if rpc_lowest_height > start_height:
-                    start_height = rpc_lowest_height
                     print('------------------------------------------------------------------------')
-                    logger.error(f"Config or default start height [{start_height}] < Lowest height available on the RPC [{rpc_lowest_height}]. Starting from {start_height}")
+                    logger.error(f"Config or default start height [{start_height}] < Lowest height available on the RPC [{rpc_lowest_height}]. Edit config or change RPC. Exiting")
+                    exit()
             else:
-                logger.error(f'Failed to check lowest block height available on the RPC [{rpc_lowest_height}]')
+                logger.error(f'Failed to check lowest block height available on the RPC. Exiting')
+                exit()
 
             logger.info(f'Indexing blocks from block: {start_height}')
             print('------------------------------------------------------------------------')
 
-            await parse_signatures_batches(validators=validators, session=session, start_height=start_height, max_active_vals=config.get('max_active_vals', 100), batch_size=config['blocks_batch_size'])
+            await parse_signatures_batches(validators=validators, session=session, start_height=start_height, batch_size=config['blocks_batch_size'], general_start_height=start_height)
         else:
 
             with open('metrics.json', 'r') as file:
@@ -251,7 +323,7 @@ async def main():
                 latest_indexed_height = metrics_data.get('latest_height', 1)
                 print('------------------------------------------------------------------------')
                 logger.info(f"Resuming indexing blocks from {metrics_data.get('latest_height')}")
-                await parse_signatures_batches(validators=validators, session=session, start_height=latest_indexed_height, max_active_vals=config.get('max_active_vals', 100), batch_size=config['blocks_batch_size'])
+                await parse_signatures_batches(validators=validators, session=session, start_height=latest_indexed_height, batch_size=config['blocks_batch_size'], general_start_height=metrics_data['start_height'])
 
 if __name__ == "__main__":
     try:

@@ -1,10 +1,10 @@
-api: "https://api-story-testnet.trusted-point.com"
-rpc: "https://story-testnet-rpc.itrocket.net:443"
-bech_32_prefix: "story"
-blocks_batch_size: 1
-start_height: 579168
-log_lvl: "INFO"
-max_active_vals: 112
+api: https://api-story-testnet.trusted-point.com:443
+rpc: https://story-testnet-rpc.itrocket.net:443
+
+bech_32_prefix: story
+blocks_batch_size: 50
+start_height: 1
+log_lvl: DEBUG
 denom_exponent: 9
 sleep_between_blocks_batch_requests: 0
 
