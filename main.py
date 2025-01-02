@@ -22,6 +22,7 @@ async def get_validators(session: AioHttpCalls, exponent):
         for index, validator  in enumerate(validators, start=1):
             info = {}
             info['moniker'] = validator['moniker']
+            info['valoper'] = validator['valoper']
             info['wallet'] = pubkey_to_bech32(pub_key=validator['consensus_pubkey'], bech32_prefix=config['bech_32_prefix'])
             info['evm_wallet'] = uncompressed_pub_key_to_evm(public_key=decompress_pubkey(validator['consensus_pubkey']))
             info['valcons'] = pubkey_to_bech32(pub_key=validator['consensus_pubkey'], bech32_prefix=config['bech_32_prefix'], address_refix='valcons')
