@@ -13,6 +13,8 @@ denom_exponent: 9
 sleep_between_blocks_batch_requests: 0
 
 metrics_batch_size: 5
+sleep_between_metrics_batch_requests: 1
+
 metrics:
   jails: true
   tombstones: true
