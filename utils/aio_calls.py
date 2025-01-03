@@ -96,7 +96,7 @@ class AioHttpCalls:
         
         async def process_response(response):
             data = await response
-            return int(data.get('pagination', {}).get('total', 0))
+            return int(data['pagination']['total'])
         
         return await self.handle_request(url, process_response)
     
@@ -105,7 +105,7 @@ class AioHttpCalls:
 
         async def process_response(response):
             data = await response
-            return data.get('val_signing_info',{}).get('tombstoned', False)
+            return data['val_signing_info'].get('tombstoned', False)
 
         return await self.handle_request(url, process_response) 
     

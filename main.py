@@ -50,7 +50,10 @@ async def get_slashing_info(validators, session: AioHttpCalls, total_vals: int, 
         batch_results = await asyncio.gather(*batch_tasks)
 
         for validator, slashing_info in zip(batch, batch_results):
-            slashing_info = slashing_info or []
+            if slashing_info is None:
+                logger.warning(f"Got None for slashing request. Setting empty [] for {validator['moniker'][:15].ljust(20)}[{validator['valoper']}]")
+                slashing_info = []
+
             validator['slashes'] = slashing_info
             logger.info(f"Fetched slashes [{len(slashing_info)}] {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['i']} / {total_vals}")
         
@@ -73,7 +76,10 @@ async def get_delegators_number(validators, session: AioHttpCalls, total_vals, b
         batch_results = await asyncio.gather(*batch_tasks)
 
         for validator, delegators in zip(batch, batch_results):
-            delegators = delegators or 0
+            if delegators is None:
+                logger.warning(f"Got None for delegators request. Setting 0 for {validator['moniker'][:15].ljust(20)}[{validator['valoper']}]")
+                delegators = 0
+
             validator['delegators_count'] = delegators
             logger.info(f"Fetched delegators [{delegators}] {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['i']} / {total_vals}")
         
@@ -123,7 +129,10 @@ async def check_valdiator_tomb(validators, session: AioHttpCalls, total_vals, ba
         batch_results = await asyncio.gather(*batch_tasks)
 
         for validator, tombstoned in zip(batch, batch_results):
-            tombstoned = tombstoned or False
+            if tombstoned is None:
+                logger.warning(f"Got None for tombstone request. Setting False for {validator['moniker'][:15].ljust(20)}[{validator['valoper']}]")
+                tombstoned = False
+
             validator['tombstoned'] = tombstoned
             logger.info(f"Fetched tombstoned [{tombstoned}] {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['i']} / {total_vals}")
         
@@ -143,15 +152,18 @@ async def get_block_signatures(session: AioHttpCalls, height):
             try:
                 block = await session.get_block(height=height)
                 if block and 'result' in block:
+                    if attempt > 0:
+                        logger.info(f"Successfully fetched block {height} after {attempt + 1} attempt(s).")
+
                     return block
                 else:
                     raise ValueError("Invalid response")
             except Exception as e:
                 if attempt < retries - 1:
                     logger.warning(f"Retrying block {height} request (attempt {attempt + 1}) due to: {e}")
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(3)
                 else:
-                    logger.error(f"Failed to fetch block {height} after {retries} attempts.")
+                    logger.error(f"Failed to fetch block {height} after {retries} attempt(s).")
                     return
        
     block = await fetch_with_retry(height=height)
@@ -178,15 +190,18 @@ async def get_evm_block_data(session: AioHttpCalls, height):
             try:
                 block = await session.get_evm_block(height=height)
                 if block and 'result' in block:
+                    if attempt > 0:
+                        logger.info(f"Successfully fetched EVM block {height} after {attempt + 1} attempt(s).")
+
                     return block
                 else:
                     raise ValueError("Invalid response")
             except Exception as e:
                 if attempt < retries - 1:
-                    logger.warning(f"Retrying block {height} request (attempt {attempt + 1}) due to: {e}")
-                    await asyncio.sleep(1)
+                    logger.warning(f"Retrying EVM block {height} request (attempt {attempt + 1}) due to: {e}")
+                    await asyncio.sleep(3)
                 else:
-                    logger.error(f"Failed to fetch block {height} after {retries} attempts.")
+                    logger.error(f"Failed to fetch EVM block {height} after {retries} attempt(s).")
                     return
        
     block = await fetch_with_retry(height=height)
@@ -208,15 +223,17 @@ async def get_all_valset(session: AioHttpCalls, height):
             try:
                 sublist = await session.get_valset_at_block(height=height, page=page)
                 if sublist and 'result' in sublist:
+                    if attempt > 0:
+                        logger.info(f"Successfully fetched valset at height {height} after / page {page} {attempt + 1} attempt(s).")
                     return sublist
                 else:
                     raise ValueError("Invalid response")
             except Exception as e:
                 if attempt < retries - 1:
                     logger.warning(f"Retrying valset request at height {height} / page {page} (attempt {attempt + 1}) due to: {e}")
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(3)
                 else:
-                    logger.error(f"Failed to fetch valset page {page} after {retries} attempts.")
+                    logger.error(f"Failed to fetch valset page {page} after {retries} attempt(s).")
                     return
 
     while count < total or total == 0:
