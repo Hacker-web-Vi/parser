@@ -36,19 +36,19 @@ class AioHttpCalls:
                     return data
         
                 else:
-                    self.logger.debug(f"Request to {url} failed with status code {response.status}")
+                    self.logger.error(f"Request to {url} failed with status code {response.status}")
                     return None
                 
         except aiohttp.ClientError as e:
-            self.logger.debug(f"Issue with making request to {url}: {e}")
+            self.logger.error(f"Issue with making request to {url}: {e}")
             return None
         
         except TimeoutError as e:
-            self.logger.debug(f"Issue with making request to {url}. TimeoutError: {e}")
+            self.logger.error(f"Issue with making request to {url}. TimeoutError: {e}")
             return None
 
         except Exception as e:
-            self.logger.debug(f"An unexpected error occurred: {e}")
+            self.logger.error(f"An unexpected error occurred: {e}")
             traceback.print_exc()
             return None
 
@@ -66,19 +66,19 @@ class AioHttpCalls:
                 if 200 <= response.status < 300:
                     return await callback(response.json())
                 else:
-                    self.logger.debug(f"Request to {url} failed with status code {response.status}")
+                    self.logger.error(f"Request to {url} failed with status code {response.status}")
                     return None
 
         except aiohttp.ClientError as e:
-            self.logger.debug(f"Issue with making request to {url}: {e}")
+            self.logger.error(f"Issue with making request to {url}: {e}")
             return None
         
         except TimeoutError as e:
-            self.logger.debug(f"Issue with making request to {url}. TimeoutError: {e}")
+            self.logger.error(f"Issue with making request to {url}. TimeoutError: {e}")
             return None
 
         except Exception as e:
-            self.logger.debug(f"An unexpected error occurred: {e}")
+            self.logger.error(f"An unexpected error occurred: {e}")
             traceback.print_exc()
             return None
         

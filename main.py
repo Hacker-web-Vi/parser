@@ -38,7 +38,7 @@ async def get_validators(session: AioHttpCalls, exponent):
             result.append(info)
         return result
 
-async def get_slashing_info(validators, session: AioHttpCalls, total_vals, batch_size=10):
+async def get_slashing_info(validators, session: AioHttpCalls, total_vals: int, batch_size: int, sleep_time: int):
     all_validators = []
     
     for i in range(0, len(validators), batch_size):
@@ -55,10 +55,13 @@ async def get_slashing_info(validators, session: AioHttpCalls, total_vals, batch
             logger.info(f"Fetched slashes [{len(slashing_info)}] {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['i']} / {total_vals}")
         
         all_validators.extend(batch)
-    
+
+        if sleep_time:
+            logger.info(f"Sleeping for {sleep_time} seconds before processing the next batch...")
+            await asyncio.sleep(sleep_time)
     return all_validators
 
-async def get_delegators_number(validators, session: AioHttpCalls, total_vals, batch_size=10):
+async def get_delegators_number(validators, session: AioHttpCalls, total_vals, batch_size: int, sleep_time: int):
     all_validators = []
     
     for i in range(0, len(validators), batch_size):
@@ -75,10 +78,13 @@ async def get_delegators_number(validators, session: AioHttpCalls, total_vals, b
             logger.info(f"Fetched delegators [{delegators}] {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['i']} / {total_vals}")
         
         all_validators.extend(batch)
-    
+
+        if sleep_time:
+            logger.info(f"Sleeping for {sleep_time} seconds before processing the next batch...")
+            await asyncio.sleep(sleep_time)
     return all_validators
 
-async def get_validator_self_stake(validators, session: AioHttpCalls, total_vals: int, exponent: int, batch_size=10):
+async def get_validator_self_stake(validators, session: AioHttpCalls, total_vals: int, exponent: int, batch_size: int, sleep_time: int):
     all_validators = []
     
     for i in range(0, len(validators), batch_size):
@@ -98,10 +104,14 @@ async def get_validator_self_stake(validators, session: AioHttpCalls, total_vals
             logger.info(f"Fetched self stake [{tokens_conv}] {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['i']} / {total_vals}")
         
         all_validators.extend(batch)
-    
+
+        if sleep_time:
+            logger.info(f"Sleeping for {sleep_time} seconds before processing the next batch...")
+            await asyncio.sleep(sleep_time)
+
     return all_validators
 
-async def check_valdiator_tomb(validators, session: AioHttpCalls, total_vals, batch_size=10):
+async def check_valdiator_tomb(validators, session: AioHttpCalls, total_vals, batch_size: int, sleep_time: int):
     all_validators = []
 
     for i in range(0, len(validators), batch_size):
@@ -118,7 +128,11 @@ async def check_valdiator_tomb(validators, session: AioHttpCalls, total_vals, ba
             logger.info(f"Fetched tombstoned [{tombstoned}] {validator['moniker'][:15].ljust(20)}[{validator['valoper'].ljust(3)}] | {validator['i']} / {total_vals}")
         
         all_validators.extend(batch)
-    
+
+        if sleep_time:
+            logger.info(f"Sleeping for {sleep_time} seconds before processing the next batch...")
+            await asyncio.sleep(sleep_time)
+            
     return all_validators
 
 
@@ -344,23 +358,23 @@ async def main():
             if config['metrics']['jails']:
                 print('------------------------------------------------------------------------')
                 logger.info('Fetching slashing info')
-                validators = await get_slashing_info(validators=validators, session=session, total_vals=total_vals, batch_size=config['metrics_batch_size'])
+                validators = await get_slashing_info(validators=validators, session=session, total_vals=total_vals, batch_size=config['metrics_batch_size'], sleep_time = config['sleep_between_metrics_batch_requests'])
 
             if config['metrics']['delegators']:
                 print('------------------------------------------------------------------------')
                 logger.info('Fetching delegators info')
-                validators = await get_delegators_number(validators=validators, session=session, total_vals=total_vals, batch_size=config['metrics_batch_size'])
+                validators = await get_delegators_number(validators=validators, session=session, total_vals=total_vals, batch_size=config['metrics_batch_size'], sleep_time = config['sleep_between_metrics_batch_requests'])
 
             if config['metrics']['self_stake']:
                 print('------------------------------------------------------------------------')
                 logger.info('Fetching self stake info')
-                validators = await get_validator_self_stake(validators=validators, session=session, total_vals=total_vals, exponent=config['denom_exponent'], batch_size=config['metrics_batch_size'])
+                validators = await get_validator_self_stake(validators=validators, session=session, total_vals=total_vals, exponent=config['denom_exponent'], batch_size=config['metrics_batch_size'], sleep_time = config['sleep_between_metrics_batch_requests'])
 
 
             if config['metrics']['tombstones']:
                 print('------------------------------------------------------------------------')
                 logger.info('Fetching tombstones info')
-                validators = await check_valdiator_tomb(validators=validators, session=session, total_vals=total_vals, batch_size=config['metrics_batch_size'])
+                validators = await check_valdiator_tomb(validators=validators, session=session, total_vals=total_vals, batch_size=config['metrics_batch_size'], sleep_time = config['sleep_between_metrics_batch_requests'])
                 print('------------------------------------------------------------------------')
                 
             if config.get('start_height') is None:
