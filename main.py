@@ -290,8 +290,6 @@ async def parse_signatures_batches(validators,
                         logger.error(f"Failed to query valset at block {current_height}\nMake sure block range {start_height} --> {latest_height} is available on the RPC\nOr try to reduce blocks_batch_size size in config\nExiting")
                         exit()
 
-                    if block['time'] == '2024-04-16':
-                        block['time'] = '2024-10-25'
                     if block['time'] not in day_boundaries:
                         day_boundaries[block['time']] = block['height']
 
