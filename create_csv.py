@@ -24,9 +24,9 @@ def create_validator_csv(metrics_file, output_csv):
             "Signed Blocks": validator["total_signed_blocks"],
             "Missed Blocks": validator["total_missed_blocks"],
             "Proposed Blocks": validator["total_proposed_blocks"],
-            "Delegators": validator["delegators_count"],
-            "Stake": validator["stake"],
-            "Self Stake": validator["self_stake"],
+            # "Delegators": validator["delegators_count"],
+            # "Stake": validator["stake"],
+            # "Self Stake": validator["self_stake"],
         })
 
     rows = sorted(rows, key=lambda x: x["Uptime"], reverse=True)
@@ -51,4 +51,4 @@ def create_validator_csv(metrics_file, output_csv):
         writer.writerows(rows)
 
     print(f"CSV file '{output_csv}' created successfully.")
-create_validator_csv("metrics.json", "validators.csv")
+create_validator_csv("metrics-d.json", "metrics-d.csv")

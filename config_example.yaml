@@ -1,16 +1,20 @@
 api: https://api-story-testnet.trusted-point.com:443
 rpc: https://story-testnet-rpc.itrocket.net:443
+evm_rpc: https://story-testnet-evm.itrocket.net:443
 
 bech_32_prefix: story
-blocks_batch_size: 50
+blocks_batch_size: 30
 start_height: 1
-log_lvl: DEBUG
+end_height: 0
+metrics_dir: new_metrics
+
+log_lvl: INFO
 denom_exponent: 9
 sleep_between_blocks_batch_requests: 0
 
 metrics_batch_size: 5
 metrics:
   jails: true
-  delegators: true
-  self_stake: true
   tombstones: true
+  delegators: true
+  self_stake: false

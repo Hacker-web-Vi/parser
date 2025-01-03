@@ -15,7 +15,8 @@ def decompress_pubkey(pub_key):
 
 def uncompressed_pub_key_to_evm(public_key):
     keccak_hash = Web3().keccak(public_key)
-    return to_checksum_address('0x' + keccak_hash[-20:].hex())
+    return '0x' + keccak_hash[-20:].hex().lower()
+    # return to_checksum_address('0x' + keccak_hash[-20:].hex())
 
 def pubkey_to_bech32(pub_key, bech32_prefix, address_refix = ""):
         pubkey_bytes = b64decode(pub_key)

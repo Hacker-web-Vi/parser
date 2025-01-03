@@ -1,6 +1,5 @@
 import aiohttp
 import traceback
-import time
 
 class AioHttpCalls:
 
@@ -13,6 +12,7 @@ class AioHttpCalls:
                  
         self.api = config['api']
         self.rpc = config['rpc']
+        self.evm_rpc = config['evm_rpc']
         self.logger = logger
         self.timeout = timeout
         self.session = None
@@ -26,9 +26,7 @@ class AioHttpCalls:
     
     async def handle_request(self, url, callback):
         try:
-            start_time = time.time()
             async with self.session.get(url, timeout=self.timeout) as response:
-                end_time = time.time()
                 
                 if 200 <= response.status < 300:
                     return await callback(response.json())
@@ -54,6 +52,36 @@ class AioHttpCalls:
             traceback.print_exc()
             return None
 
+    async def handle_evm_request(self, url, method, params, callback):
+        try:
+            headers = {'Content-Type': 'application/json'}
+            payload = {
+                "jsonrpc": "2.0",
+                "method": method,
+                "params": params,
+                "id": 1
+            }
+
+            async with self.session.post(url, json=payload, headers=headers, timeout=self.timeout) as response:
+                if 200 <= response.status < 300:
+                    return await callback(response.json())
+                else:
+                    self.logger.debug(f"Request to {url} failed with status code {response.status}")
+                    return None
+
+        except aiohttp.ClientError as e:
+            self.logger.debug(f"Issue with making request to {url}: {e}")
+            return None
+        
+        except TimeoutError as e:
+            self.logger.debug(f"Issue with making request to {url}. TimeoutError: {e}")
+            return None
+
+        except Exception as e:
+            self.logger.debug(f"An unexpected error occurred: {e}")
+            traceback.print_exc()
+            return None
+        
     async def get_latest_block_height_rpc(self) -> str:
         url = f"{self.rpc}/abci_info"
 
@@ -101,15 +129,7 @@ class AioHttpCalls:
         url = status_urls.get(status, status_urls[None])
         async def process_response(response):
             data = await response
-            validators = []
-            for validator in data['validators']:
-                info = {'valoper': validator.get('operator_address'),
-                        'consensus_pubkey': validator.get('consensus_pubkey',{}).get('key'),
-                        'moniker': validator.get('description',{}).get('moniker'),
-                        'tokens': float(validator.get('tokens', 0.0))}
-                
-                validators.append(info)
-            return validators
+            return data['validators']
         
         return await self.handle_request(url, process_response)
     
@@ -127,6 +147,7 @@ class AioHttpCalls:
     
     async def get_block(self, height):
         url = f"{self.rpc}/commit?height={height}"
+        self.logger.debug(f"Requesting Beacon block {height}")
 
         async def process_response(response):
             data = await response
@@ -158,3 +179,17 @@ class AioHttpCalls:
             return int(data.get("result", {}).get("block", {}).get("header", {}).get("height"))
                 
         return await self.handle_request(url, process_response)
+    
+    async def get_evm_block(self, height: int, full_data=False):
+        url = f"{self.evm_rpc}"
+        self.logger.debug(f"Requesting EVM block {height}")
+
+        hex_height = hex(height)
+        params = [hex_height, full_data]
+
+        async def process_response(response):
+            data = await response
+            return data
+
+        return await self.handle_evm_request(url, "eth_getBlockByNumber", params, process_response)
+    
