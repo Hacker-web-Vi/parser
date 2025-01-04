@@ -224,7 +224,7 @@ async def get_all_valset(session: AioHttpCalls, height):
                 sublist = await session.get_valset_at_block(height=height, page=page)
                 if sublist and 'result' in sublist:
                     if attempt > 0:
-                        logger.info(f"Successfully fetched valset at height {height} after / page {page} {attempt + 1} attempt(s).")
+                        logger.info(f"Successfully fetched valset at height {height} & page {page} after {attempt + 1} attempt(s).")
                     return sublist
                 else:
                     raise ValueError("Invalid response")
@@ -258,7 +258,8 @@ async def parse_signatures_batches(validators,
                                    batch_size: int,
                                    sleep_between_blocks_batch: int,
                                    update_bar: bool,
-                                   initial_start_height: int
+                                   initial_start_height: int,
+                                   day_boundaries: dict
                                    ):
     os.makedirs(metrics_dir, exist_ok=True)
 
@@ -267,7 +268,6 @@ async def parse_signatures_batches(validators,
         if not end_height:
             logger.error("Failed to fetch RPC latest height. RPC is not reachable. Exiting.")
             exit(1)
-    day_boundaries = {}
     
     try:
         with tqdm(total=end_height, desc="Parsing Blocks", unit="block", initial=start_height) as pbar:
@@ -312,7 +312,9 @@ async def parse_signatures_batches(validators,
                         block['time'] = '2024-10-25'
 
                     if block['time'] not in day_boundaries:
-                        day_boundaries[block['time']] = block['height']
+                        day_boundaries[block['time']] = {'start': block['height'], 'txs': 0}
+                    else:
+                        day_boundaries[block['time']]['txs'] += evm_block['num_tx']
 
                     logger.debug(f"Block {current_height} | Valset {len(valset)} | Sigantures {len(block['signatures'])}")
 
@@ -422,7 +424,8 @@ async def main():
                                            batch_size=config['blocks_batch_size'],
                                            update_bar=True if config['log_lvl'] != 'DEBUG' else False,
                                            sleep_between_blocks_batch=config['sleep_between_blocks_batch_requests'],
-                                           initial_start_height=start_height
+                                           initial_start_height=start_height,
+                                           day_boundaries={}
                                            )
         else:
             with open(f"{config['metrics_dir']}/metrics.json", 'r') as file:
@@ -439,7 +442,8 @@ async def main():
                                             batch_size=config['blocks_batch_size'],
                                             update_bar=True if config['log_lvl'] != 'DEBUG' else False,
                                             sleep_between_blocks_batch=config['sleep_between_blocks_batch_requests'],
-                                            initial_start_height=metrics_data['start_height']
+                                            initial_start_height=metrics_data['start_height'],
+                                            day_boundaries=metrics_data['day_boundaries']
                                             )
 
 if __name__ == "__main__":
