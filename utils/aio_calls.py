@@ -93,6 +93,7 @@ class AioHttpCalls:
 
     async def get_total_delegators(self, valoper: str) -> str:
         url = f"{self.api}/cosmos/staking/v1beta1/validators/{valoper}/delegations?pagination.count_total=true"
+        self.logger.debug(f"Requesting delegators at {url}")
         
         async def process_response(response):
             data = await response
