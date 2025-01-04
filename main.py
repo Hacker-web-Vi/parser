@@ -18,6 +18,7 @@ async def get_validators(session: AioHttpCalls, exponent):
     logger.info(f"Fetched validators")
     result = []
     validators = await session.get_validators(status=None)
+
     if validators:
         for i, validator  in enumerate(validators, start=1):
             info = {}
@@ -36,6 +37,44 @@ async def get_validators(session: AioHttpCalls, exponent):
             info['dates'] = {}
             info['i'] = i
             result.append(info)
+
+        ### PRUNED ROUND 1 VALS
+        result.append(
+            {
+                "moniker": "Card3",
+                "valoper": "storyvaloper1nsnf4gmwc46clml3w37nz2yd9340rj23qd5emc",
+                "wallet": "story1nsnf4gmwc46clml3w37nz2yd9340rj23wzqcsn",
+                "evm": "0x69c7c3407343700a049533844988961e225567bf",
+                "valcons": "storyvalcons1nsnf4gmwc46clml3w37nz2yd9340rj235789he",
+                "hex": "9C269AA36EC5758FEFF1747D31288D2C6AF1C951",
+                "stake": 95000.0,
+                "total_signed_blocks": 0,
+                "total_proposed_blocks": 0,
+                "total_mined_evm_blocks": 0,
+                "total_processed_evm_txs": 0,
+                "dates": {},
+                "i": 298
+            }
+        )
+
+        result.append(
+            {
+                "moniker": "ValidatorVN",
+                "valoper": "storyvaloper1xjvw3wj7kxvp2f4j5a0fud96rjy09dpxre6yq7",
+                "wallet": "story1xjvw3wj7kxvp2f4j5a0fud96rjy09dpxdkw9t4",
+                "evm": "0x53e86d9b5da4bfe59e3c3b9749ce3c34b23219ef",
+                "valcons": "storyvalcons1xjvw3wj7kxvp2f4j5a0fud96rjy09dpxh2fcvl",
+                "hex": "3498E8BA5EB1981526B2A75E9E34BA1C88F2B426",
+                "stake": 15000.0,
+                "total_signed_blocks": 0,
+                "total_proposed_blocks": 0,
+                "total_mined_evm_blocks": 0,
+                "total_processed_evm_txs": 0,
+                "dates": {},
+                "i": 299
+            }
+        )
+
         return result
 
 async def get_slashing_info(validators, session: AioHttpCalls, total_vals: int, batch_size: int, sleep_time: int):
