@@ -17,65 +17,27 @@ logger = setup_logger(log_level=config['log_lvl'])
 async def get_validators(session: AioHttpCalls, exponent):
     logger.info(f"Fetched validators")
     result = []
-    # validators = await session.get_validators(status=None)
+    validators = await session.get_validators(status=None)
 
-    # if validators:
-    #     for i, validator  in enumerate(validators, start=1):
-    #         info = {}
-    #         info['moniker'] = validator['description']['moniker']
-    #         info['valoper'] = validator['operator_address']
-    #         info['wallet'] = pubkey_to_bech32(pub_key=validator['consensus_pubkey']['key'], bech32_prefix=config['bech_32_prefix'])
-    #         info['evm'] = uncompressed_pub_key_to_evm(public_key=decompress_pubkey(validator['consensus_pubkey']['key']))
-    #         info['valcons'] = pubkey_to_bech32(pub_key=validator['consensus_pubkey']['key'], bech32_prefix=config['bech_32_prefix'], address_refix='valcons')
-    #         info['hex'] = pubkey_to_consensus_hex(pub_key=validator['consensus_pubkey']['key'])
-    #         info['stake'] = round((float(validator['tokens']) / (10 ** exponent)), 1) if validator['tokens'] else 0.0
-    #         info['total_signed_blocks'] = 0
-    #         info['total_missed_blocks'] = 0
-    #         info['total_proposed_blocks'] = 0
-    #         info['total_mined_evm_blocks'] = 0
-    #         info['total_processed_evm_txs'] = 0
-    #         info['dates'] = {}
-    #         info['i'] = i
-    #         result.append(info)
-
-        ### PRUNED ROUND 1 VALS
-    result.append(
-        {
-            "moniker": "Card3",
-            "valoper": "storyvaloper1nsnf4gmwc46clml3w37nz2yd9340rj23qd5emc",
-            "wallet": "story1nsnf4gmwc46clml3w37nz2yd9340rj23wzqcsn",
-            "evm": "0x69c7c3407343700a049533844988961e225567bf",
-            "valcons": "storyvalcons1nsnf4gmwc46clml3w37nz2yd9340rj235789he",
-            "hex": "9C269AA36EC5758FEFF1747D31288D2C6AF1C951",
-            "stake": 95000.0,
-            "total_signed_blocks": 0,
-            "total_missed_blocks": 0,
-            "total_proposed_blocks": 0,
-            "total_mined_evm_blocks": 0,
-            "total_processed_evm_txs": 0,
-            "dates": {},
-            "i": 298
-        }
-    )
-
-    result.append(
-        {
-            "moniker": "ValidatorVN",
-            "valoper": "storyvaloper1xjvw3wj7kxvp2f4j5a0fud96rjy09dpxre6yq7",
-            "wallet": "story1xjvw3wj7kxvp2f4j5a0fud96rjy09dpxdkw9t4",
-            "evm": "0x53e86d9b5da4bfe59e3c3b9749ce3c34b23219ef",
-            "valcons": "storyvalcons1xjvw3wj7kxvp2f4j5a0fud96rjy09dpxh2fcvl",
-            "hex": "3498E8BA5EB1981526B2A75E9E34BA1C88F2B426",
-            "stake": 15000.0,
-            "total_signed_blocks": 0,
-            "total_missed_blocks": 0,
-            "total_proposed_blocks": 0,
-            "total_mined_evm_blocks": 0,
-            "total_processed_evm_txs": 0,
-            "dates": {},
-            "i": 299
-        }
-    )
+    if validators:
+        for i, validator  in enumerate(validators, start=1):
+            if 'TrustedPoint' in validator['description']['moniker']:
+                info = {}
+                info['moniker'] = validator['description']['moniker']
+                info['valoper'] = validator['operator_address']
+                info['wallet'] = pubkey_to_bech32(pub_key=validator['consensus_pubkey']['key'], bech32_prefix=config['bech_32_prefix'])
+                info['evm'] = uncompressed_pub_key_to_evm(public_key=decompress_pubkey(validator['consensus_pubkey']['key']))
+                info['valcons'] = pubkey_to_bech32(pub_key=validator['consensus_pubkey']['key'], bech32_prefix=config['bech_32_prefix'], address_refix='valcons')
+                info['hex'] = pubkey_to_consensus_hex(pub_key=validator['consensus_pubkey']['key'])
+                info['stake'] = round((float(validator['tokens']) / (10 ** exponent)), 1) if validator['tokens'] else 0.0
+                info['total_signed_blocks'] = 0
+                info['total_missed_blocks'] = 0
+                info['total_proposed_blocks'] = 0
+                # info['total_mined_evm_blocks'] = 0
+                # info['total_processed_evm_txs'] = 0
+                info['dates'] = {}
+                info['i'] = i
+                result.append(info)
 
     return result
 
@@ -224,34 +186,34 @@ async def get_block_signatures(session: AioHttpCalls, height):
             "time": block_time
         }
 
-async def get_evm_block_data(session: AioHttpCalls, height):
+# async def get_evm_block_data(session: AioHttpCalls, height):
     
-    async def fetch_with_retry(height, retries=3):
-        for attempt in range(retries):
-            try:
-                block = await session.get_evm_block(height=height)
-                if block and 'result' in block:
-                    if attempt > 0:
-                        logger.info(f"Successfully fetched EVM block {height} after {attempt + 1} attempt(s).")
+#     async def fetch_with_retry(height, retries=3):
+#         for attempt in range(retries):
+#             try:
+#                 block = await session.get_evm_block(height=height)
+#                 if block and 'result' in block:
+#                     if attempt > 0:
+#                         logger.info(f"Successfully fetched EVM block {height} after {attempt + 1} attempt(s).")
 
-                    return block
-                else:
-                    raise ValueError("Invalid response")
-            except Exception as e:
-                if attempt < retries - 1:
-                    logger.warning(f"Retrying EVM block {height} request (attempt {attempt + 1}) due to: {e}")
-                    await asyncio.sleep(3)
-                else:
-                    logger.error(f"Failed to fetch EVM block {height} after {retries} attempt(s).")
-                    return
+#                     return block
+#                 else:
+#                     raise ValueError("Invalid response")
+#             except Exception as e:
+#                 if attempt < retries - 1:
+#                     logger.warning(f"Retrying EVM block {height} request (attempt {attempt + 1}) due to: {e}")
+#                     await asyncio.sleep(3)
+#                 else:
+#                     logger.error(f"Failed to fetch EVM block {height} after {retries} attempt(s).")
+#                     return
        
-    block = await fetch_with_retry(height=height)
-    if block:
-        return {
-            "height": height,
-            "miner": block['result']['miner'],
-            "num_tx": len(block['result']['transactions']),
-        }
+#     block = await fetch_with_retry(height=height)
+#     if block:
+#         return {
+#             "height": height,
+#             "miner": block['result']['miner'],
+#             "num_tx": len(block['result']['transactions']),
+#         }
     
 async def get_all_valset(session: AioHttpCalls, height):
     merged_valsets = []
@@ -318,44 +280,44 @@ async def parse_signatures_batches(validators,
 
                 blocks_tasks = []
                 valset_tasks = []
-                evm_blocks_tasks = []
+                # evm_blocks_tasks = []
                 
                 for current_height in range(height, latest_height):
                     blocks_tasks.append(get_block_signatures(session=session, height=current_height))
                     valset_tasks.append(get_all_valset(session=session, height=current_height))
-                    evm_blocks_tasks.append(get_evm_block_data(session=session, height=current_height-1))
+                    # evm_blocks_tasks.append(get_evm_block_data(session=session, height=current_height-1))
 
-                blocks, valsets, evm_blocks = await asyncio.gather(
+                blocks, valsets = await asyncio.gather(
                     asyncio.gather(*blocks_tasks),
                     asyncio.gather(*valset_tasks),
-                    asyncio.gather(*evm_blocks_tasks),
+                    # asyncio.gather(*evm_blocks_tasks),
                 )
 
                 if sleep_between_blocks_batch:
                     await asyncio.sleep(sleep_between_blocks_batch)
 
-                for block, valset, evm_block in zip(blocks, valsets, evm_blocks):
+                for block, valset in zip(blocks, valsets):
 
                     if not block:
                         logger.error(f"Failed to query {current_height} block\nMake sure block range {start_height} --> {latest_height} is available on the RPC\nOr try to reduce blocks_batch_size size in config\nExiting")
                         exit()
 
-                    if not evm_block:
-                        logger.error(f"Failed to query {current_height-1} EVM block\nMake sure block range {start_height} --> {latest_height-1} is available on the EVM RPC\nOr try to reduce blocks_batch_size size in config\nExiting")
-                        exit()
+                    # if not evm_block:
+                    #     logger.error(f"Failed to query {current_height-1} EVM block\nMake sure block range {start_height} --> {latest_height-1} is available on the EVM RPC\nOr try to reduce blocks_batch_size size in config\nExiting")
+                    #     exit()
 
                     if not valset:
                         logger.error(f"Failed to query valset at block {current_height}\nMake sure block range {start_height} --> {latest_height} is available on the RPC\nOr try to reduce blocks_batch_size size in config\nExiting")
                         exit()
 
                     # TO INCLUDE GENESIS FIRST BLOCK INTO THE FIRST DAY
-                    if block['time'] == '2024-04-16':
-                        block['time'] = '2024-10-25'
+                    # if block['time'] == '2024-04-16':
+                    #     block['time'] = '2024-10-25'
 
                     if block['time'] not in day_boundaries:
                         day_boundaries[block['time']] = {'start': block['height'], 'txs': 0}
-                    else:
-                        day_boundaries[block['time']]['txs'] += evm_block['num_tx']
+                    # else:
+                        # day_boundaries[block['time']]['txs'] += evm_block['num_tx']
 
                     logger.debug(f"Block {current_height} | Valset {len(valset)} | Sigantures {len(block['signatures'])}")
 
@@ -363,19 +325,19 @@ async def parse_signatures_batches(validators,
                         validator['dates'].setdefault(block['time'], {'signed_count': 0,
                                                                     'missed_count': 0,
                                                                     'proposed_count': 0,
-                                                                    'mined_evm_blocks_count': 0,
-                                                                    'processed_evm_tx_count': 0
+                                                                    # 'mined_evm_blocks_count': 0,
+                                                                    # 'processed_evm_tx_count': 0
                                                                     })
                         if validator['hex'] in valset:
                             if validator['hex'] == block['proposer']:
                                 validator['total_proposed_blocks'] += 1
                                 validator['dates'][block['time']]['proposed_count'] += 1
                         
-                            if validator['evm'] == evm_block['miner']:
-                                validator['total_mined_evm_blocks'] += 1
-                                validator['total_processed_evm_txs'] += evm_block['num_tx']
-                                validator['dates'][block['time']]['mined_evm_blocks_count'] += 1
-                                validator['dates'][block['time']]['processed_evm_tx_count'] += evm_block['num_tx']
+                            # if validator['evm'] == evm_block['miner']:
+                            #     validator['total_mined_evm_blocks'] += 1
+                            #     validator['total_processed_evm_txs'] += evm_block['num_tx']
+                            #     validator['dates'][block['time']]['mined_evm_blocks_count'] += 1
+                            #     validator['dates'][block['time']]['processed_evm_tx_count'] += evm_block['num_tx']
 
                             if validator['hex'] in block['signatures']:
                                 validator['total_signed_blocks'] += 1

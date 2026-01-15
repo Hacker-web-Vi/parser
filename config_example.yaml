@@ -1,6 +1,6 @@
 api: https://api-story-testnet.trusted-point.com:443
 rpc: https://story-testnet-rpc.itrocket.net:443
-evm_rpc: https://story-testnet-evm.itrocket.net:443
+# evm_rpc: https://story-testnet-evm.itrocket.net:443
 
 bech_32_prefix: story
 blocks_batch_size: 30

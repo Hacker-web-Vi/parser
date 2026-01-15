@@ -12,7 +12,7 @@ class AioHttpCalls:
                  
         self.api = config['api']
         self.rpc = config['rpc']
-        self.evm_rpc = config['evm_rpc']
+        # self.evm_rpc = config['evm_rpc']
         self.logger = logger
         self.timeout = timeout
         self.session = None
@@ -181,16 +181,16 @@ class AioHttpCalls:
                 
         return await self.handle_request(url, process_response)
     
-    async def get_evm_block(self, height: int, full_data=False):
-        url = f"{self.evm_rpc}"
-        self.logger.debug(f"Requesting EVM block {height}")
+    # async def get_evm_block(self, height: int, full_data=False):
+    #     url = f"{self.evm_rpc}"
+    #     self.logger.debug(f"Requesting EVM block {height}")
 
-        hex_height = hex(height)
-        params = [hex_height, full_data]
+    #     hex_height = hex(height)
+    #     params = [hex_height, full_data]
 
-        async def process_response(response):
-            data = await response
-            return data
+    #     async def process_response(response):
+    #         data = await response
+    #         return data
 
-        return await self.handle_evm_request(url, "eth_getBlockByNumber", params, process_response)
+    #     return await self.handle_evm_request(url, "eth_getBlockByNumber", params, process_response)
     
